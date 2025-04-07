@@ -98,5 +98,4 @@ if __name__ == "__main__":
     print("Server is initializing...")
     if _test_login():
         print("Login was successful.")
-    create_release_stream("test", True, "Ddd")
-    mcp.run()
+        mcp.run()
