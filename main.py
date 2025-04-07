@@ -21,13 +21,13 @@ def _test_login() -> bool:
         # print("Login test successful.")
         return True
     except Exception as e:
-        # print(f"Login test failed: {e}")
+        print(f"Login test failed: {e}")
         return False
 
 
 if __name__ == "__main__":
-    # print("Server is initializing...")
+    print("Server is initializing...")
     mcp = ClientUtils.get_mcp_instance()
     if _test_login():
-        # print("Login was successful.")
+        print("Login was successful.")
         mcp.run()
