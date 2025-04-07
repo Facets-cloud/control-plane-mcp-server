@@ -19,9 +19,6 @@ def initialize():
     username = os.getenv("FACETS_USERNAME", "")
     token = os.getenv("FACETS_TOKEN", "")
 
-    if not profile:
-        raise ValueError("Profile must be specified either in the environment or credentials file.")
-
     if profile and not (cp_url and username and token):
         # Assume credentials exist in ~/.facets/credentials
         config = configparser.ConfigParser()
