@@ -1,12 +1,16 @@
 import swagger_client
 from mcp.server.fastmcp import FastMCP
+from swagger_client.models.stack import Stack
 import os
 import configparser
+from pydantic import BaseModel, Field, create_model
+from typing import Any
 
 class ClientUtils:
     cp_url = None
     username = None
     token = None
+    _current_project: Stack = None  # Use a private variable for the current project
     mcp = None
     initialized = False
 
@@ -69,3 +73,45 @@ class ClientUtils:
         # print(f"Running MCP server at: {cp_url} using profile {profile}")
         ClientUtils.set_client_config(cp_url, username, token)
         return cp_url, username, token, profile
+
+    @staticmethod
+    def set_current_project(project: Stack):
+        """
+        Set the current project in the utils configuration.
+
+        Args:
+            project (Stack): The complete project object to set as current.
+        """
+        ClientUtils._current_project = project
+
+    @staticmethod
+    def get_current_project() -> Stack:
+        """
+        Get the current project object.
+
+        Returns:
+            Stack: The current project object.
+        """
+        return ClientUtils._current_project
+
+    @staticmethod
+    def pydantic_instance_to_swagger_instance(pydantic_instance, swagger_class):
+        swagger_kwargs = {}
+        alias_map = swagger_class.attribute_map
+        reverse_alias_map = {v: k for k, v in alias_map.items()}
+
+        for field_name, value in pydantic_instance.dict(by_alias=True, exclude_unset=True).items():
+            # Map alias (JSON key) back to swagger attribute name
+            swagger_field = reverse_alias_map.get(field_name, field_name)
+
+            # Fix for internal naming like _global
+            if swagger_field.startswith("_") or swagger_field in swagger_class.swagger_types:
+                swagger_kwargs[swagger_field] = value
+            else:
+                # Handle renamed fields like global_ → _global
+                if swagger_field + "_" in swagger_class.swagger_types:
+                    swagger_kwargs[swagger_field + "_"] = value
+                else:
+                    swagger_kwargs[swagger_field] = value
+
+        return swagger_class(**swagger_kwargs)

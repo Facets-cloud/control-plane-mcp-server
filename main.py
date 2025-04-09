@@ -5,7 +5,7 @@ from utils.client_utils import ClientUtils
 
 # Initialize configuration and MCP instance
 
-from tools.release_stream_tool import create_release_stream
+from tools.project_tools import *
 
 def _test_login() -> bool:
     """
