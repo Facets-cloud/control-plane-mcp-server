@@ -37,6 +37,27 @@ def use_project(project_name: str):
 
 
 @mcp.tool()
+def refresh_current_project():
+    """
+    Refresh the current project data from the server to avoid stale cache.
+    
+    Returns:
+        Stack: The refreshed project object
+        
+    Raises:
+        ValueError: If no current project is set.
+    """
+    if not ClientUtils.get_current_project():
+        raise ValueError("No current project is set.")
+        
+    curr_project = ClientUtils.get_current_project()
+    api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
+    refreshed_project = api_instance.get_stack_using_get(curr_project.name)
+    ClientUtils.set_current_project(refreshed_project)
+    return refreshed_project
+
+
+@mcp.tool()
 def get_secrets_and_vars():
     """
     Get secrets and vars of the current project. Use This to Prompt user If a variable
@@ -51,7 +72,7 @@ def get_secrets_and_vars():
     if not ClientUtils.get_current_project():
         raise ValueError("No current project is set.")
 
-    # Assuming _current_project has fields `secrets` and `vars`
+    # Return the variables from the cached project
     return ClientUtils.get_current_project().cluster_variables_meta,
 
 
@@ -92,7 +113,12 @@ def create_variables(variables: Dict[str, VariablesModel]) -> None:
         variables_swagger_dict[name] = ClientUtils.pydantic_instance_to_swagger_instance(var, Variables)
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    return api_instance.add_variables_using_post(curr_project.name, variables_swagger_dict)
+    result = api_instance.add_variables_using_post(curr_project.name, variables_swagger_dict)
+    
+    # Refresh the project to update the cache
+    refresh_current_project()
+    
+    return result
 
 @mcp.tool()
 def update_variables(variables: Dict[str, VariablesModel]) -> None:
@@ -130,7 +156,12 @@ def update_variables(variables: Dict[str, VariablesModel]) -> None:
         variables_swagger_dict[name] = ClientUtils.pydantic_instance_to_swagger_instance(var, Variables)
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    return api_instance.update_variables_using_put(curr_project.name, variables_swagger_dict)
+    result = api_instance.update_variables_using_put(curr_project.name, variables_swagger_dict)
+    
+    # Refresh the project to update the cache
+    refresh_current_project()
+    
+    return result
 
 @mcp.tool()
 def delete_variables(variable_names: List[str]) -> None:
@@ -158,4 +189,9 @@ def delete_variables(variable_names: List[str]) -> None:
         raise ValueError(f"The following variables do not exist: {', '.join(missing_vars)}")
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    return api_instance.delete_variables_using_delete(curr_project.name, variable_names)
+    result = api_instance.delete_variables_using_delete(curr_project.name, variable_names)
+    
+    # Refresh the project to update the cache
+    refresh_current_project()
+    
+    return result
