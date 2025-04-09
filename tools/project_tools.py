@@ -2,6 +2,7 @@ from pydantic_generated.variablesmodel import VariablesModel
 from utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import Variables
+from typing import List, Dict
 
 mcp = ClientUtils.get_mcp_instance()
 
@@ -55,31 +56,106 @@ def get_secrets_and_vars():
 
 
 @mcp.tool()
-def create_variable(variable_name: str, variable: VariablesModel) -> None:
+def create_variables(variables: Dict[str, VariablesModel]) -> None:
     """
-    Create a new variable in the current project.
+    Create multiple new variables in the current project.
 
     Args:
-        variable_name: The unique name of the variable to create.
-        variable: A VariablesModel object containing:
-            - description: (str) Optional description of the variable
-            - secret: (bool) Whether this is a secret variable
-            - value: (str) The actual value of the variable
-            - global: (bool) Always set to False
+        variables: Dictionary with variable names as keys and VariablesModel objects as values.
+                  Each VariablesModel should contain:
+                  - description: (str) Optional description of the variable
+                  - secret: (bool) Whether this is a secret variable
+                  - value: (str) The actual value of the variable
+                  - global: (bool) Always set to False
 
         Prompt:
-            Ask the user to describe the new variable they want to create — what it’s for, whether it should be treated as a secret, and what its value should be. Use this conversation to infer a meaningful description and default value. Confirm your understanding with the user and allow edits before creating the variable.
+            Ask the user to describe the variables they want to create — what they're for,
+            whether they should be treated as secrets, and their values. Use this conversation
+            to infer meaningful descriptions and default values. Confirm your understanding
+            with the user and allow edits before creating the variables.
 
     Raises:
-        ValueError: If a variable with the same name already exists.
+        ValueError: If any of the variables already exist.
     """
-    variable_swagger_dict = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
     current_vars = get_secrets_and_vars()
     curr_project = ClientUtils.get_current_project()
     ClientUtils.set_current_project(curr_project)
 
-    if variable_name in current_vars:
-        raise ValueError("Variable already exists.")
+    # Check if any variables already exist
+    existing_vars = [name for name in variables.keys() if name in current_vars]
+    if existing_vars:
+        raise ValueError(f"The following variables already exist: {', '.join(existing_vars)}")
+
+    # Convert all variables to swagger format
+    variables_swagger_dict = {}
+    for name, var in variables.items():
+        variables_swagger_dict[name] = ClientUtils.pydantic_instance_to_swagger_instance(var, Variables)
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    return api_instance.add_variables_using_post(curr_project.name, {variable_name: variable_swagger_dict})
+    return api_instance.add_variables_using_post(curr_project.name, variables_swagger_dict)
+
+@mcp.tool()
+def update_variables(variables: Dict[str, VariablesModel]) -> None:
+    """
+    Update multiple existing variables in the current project.
+
+    Args:
+        variables: Dictionary with variable names as keys and VariablesModel objects as values.
+                  Each VariablesModel should contain:
+                  - description: (str) Optional description of the variable
+                  - secret: (bool) Whether this is a secret variable
+                  - value: (str) The actual value of the variable
+                  - global: (bool) Always set to False
+
+        Prompt:
+            Ask the user which variables they want to update and what changes they want to make.
+            Verify that all variables exist before attempting to update them.
+            Confirm your understanding with the user and allow edits before updating the variables.
+
+    Raises:
+        ValueError: If any of the variables do not exist.
+    """
+    current_vars = get_secrets_and_vars()
+    curr_project = ClientUtils.get_current_project()
+    ClientUtils.set_current_project(curr_project)
+
+    # Check if all variables exist
+    missing_vars = [name for name in variables.keys() if name not in current_vars]
+    if missing_vars:
+        raise ValueError(f"The following variables do not exist: {', '.join(missing_vars)}")
+
+    # Convert all variables to swagger format
+    variables_swagger_dict = {}
+    for name, var in variables.items():
+        variables_swagger_dict[name] = ClientUtils.pydantic_instance_to_swagger_instance(var, Variables)
+
+    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+    return api_instance.update_variables_using_put(curr_project.name, variables_swagger_dict)
+
+@mcp.tool()
+def delete_variables(variable_names: List[str]) -> None:
+    """
+    Delete multiple variables from the current project.
+
+    Args:
+        variable_names: List of names of the variables to delete.
+
+        Prompt:
+            Ask the user which variables they want to delete.
+            Confirm deletion with the user before proceeding as this action cannot be undone.
+            Verify that all variables exist before attempting to delete them.
+
+    Raises:
+        ValueError: If any of the variables do not exist.
+    """
+    current_vars = get_secrets_and_vars()
+    curr_project = ClientUtils.get_current_project()
+    ClientUtils.set_current_project(curr_project)
+
+    # Check if all variables exist
+    missing_vars = [name for name in variable_names if name not in current_vars]
+    if missing_vars:
+        raise ValueError(f"The following variables do not exist: {', '.join(missing_vars)}")
+
+    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+    return api_instance.delete_variables_using_delete(curr_project.name, variable_names)
