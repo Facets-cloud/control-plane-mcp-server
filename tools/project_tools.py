@@ -16,7 +16,10 @@ def get_all_projects() -> str:
         str: List of all projects
     """
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-    return api_instance.get_stacks_using_get1()
+    stacks = api_instance.get_stacks_using_get1()
+    # Extract just the stack names and return them as a formatted string
+    stack_names = [stack.name for stack in stacks]
+    return "\n".join(stack_names) if stack_names else "No projects found"
 
 
 @mcp.tool()
