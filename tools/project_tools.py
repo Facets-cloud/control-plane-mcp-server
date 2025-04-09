@@ -73,7 +73,7 @@ def get_secrets_and_vars():
         raise ValueError("No current project is set.")
 
     # Return the variables from the cached project
-    return ClientUtils.get_current_project().cluster_variables_meta,
+    return ClientUtils.get_current_project().cluster_variables_meta
 
 
 @mcp.tool()
