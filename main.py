@@ -1,8 +1,3 @@
-import os
-import sys
-import swagger_client
-from utils.client_utils import ClientUtils
-
 # Initialize configuration and MCP instance
 
 from tools.project_tools import *
@@ -16,8 +11,7 @@ def _test_login() -> bool:
     """
     try:
         api_instance = swagger_client.ApplicationControllerApi(ClientUtils.get_client())
-        # Assuming there's a method in ApplicationControllerApi to test the connection or login status.
-        response = api_instance.me_using_get()  # Example method that requires login
+        api_instance.me_using_get()
         # print("Login test successful.")
         return True
     except Exception as e:
