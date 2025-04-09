@@ -1,21 +1,29 @@
 # Control Plane MCP Server
 
-A Model Context Protocol (MCP) server that provides tools and resources for interacting with the Control Plane REST API.
+A Model Context Protocol (MCP) server that provides tools for interacting with the Control Plane REST API.
 
 ## Features
 
 This MCP server connects to your control plane API and provides:
 
-### Release Stream API
-- **Resources**:
-  - `release-streams://list` - View all release streams
-  - `release-streams://stack/{stack_name}` - View release streams for a specific stack
+### Release Stream Management
 - **Tools**:
-  - `create_release_stream` - Create a new release stream
-  - `delete_release_stream` - Delete an existing release stream by name
-- **Prompts**:
-  - Guided creation of release streams
-  - Guided deletion with risk assessment
+  - `create_release_stream` - Create a new release stream with options for production status and description
+
+### Project Management
+- **Tools**:
+  - `get_all_projects` - Retrieve a list of all projects
+  - `use_project` - Set the current active project
+  - `refresh_current_project` - Refresh project data from the server to avoid stale cache
+
+### Variables Management
+- **Tools**:
+  - `get_secrets_and_vars` - View all variables and secrets for the current project
+  - `create_variables` - Create multiple new variables in the current project
+  - `update_variables` - Update existing variables in the current project
+  - `delete_variables` - Delete variables from the current project
+- **Models**:
+  - `VariablesModel` - Pydantic model for variable definition with fields for description, global status, secret status, and value
 
 ## Installation
 
@@ -67,9 +75,9 @@ The server requires these environment variables:
 
 Once installed in Claude Desktop, you can:
 
-1. Ask about release streams: "Show me all release streams" or "What release streams are associated with the 'prod' stack?"
-2. Create new release streams: "Create a new release stream called 'test-stream'"
-3. Delete release streams: "Delete the release stream named 'old-stream'"
+1. Manage projects: "Show me all available projects" or "Set the current project to 'my-project'"
+2. Work with variables: "Show me all variables in the current project" or "Create a new secret variable for API authentication"
+3. Create release streams: "Create a new release stream called 'test-stream'"
 
 Claude will automatically use the appropriate tools and display the results.
 
@@ -77,11 +85,10 @@ Claude will automatically use the appropriate tools and display the results.
 
 To add support for more control plane APIs:
 
-1. Add new resource methods using the `@mcp.resource()` decorator
-2. Add new tool methods using the `@mcp.tool()` decorator
-3. Add helpful prompts using the `@mcp.prompt()` decorator
+1. Add new tool methods using the `@mcp.tool()` decorator in the tools directory
+2. Import your tools in main.py to register them with the MCP instance
 
-Follow the existing release stream implementation as a pattern.
+Follow the existing implementation patterns in the tools directory.
 
 ## Troubleshooting
 
