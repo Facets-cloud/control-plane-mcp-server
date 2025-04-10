@@ -6,6 +6,7 @@ import configparser
 from pydantic import BaseModel, Field, create_model
 from typing import Any
 
+
 class ClientUtils:
     cp_url = None
     username = None
@@ -115,3 +116,16 @@ class ClientUtils:
                     swagger_kwargs[swagger_field] = value
 
         return swagger_class(**swagger_kwargs)
+
+    @staticmethod
+    def refresh_current_project_and_cache():
+        """
+        Refresh the current project data from the server and update the cache.
+        """
+        curr_project = ClientUtils.get_current_project()
+        if not curr_project:
+            raise ValueError("No current project is set.")
+
+        api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
+        refreshed_project = api_instance.get_stack_using_get(curr_project.name)
+        ClientUtils.set_current_project(refreshed_project)
