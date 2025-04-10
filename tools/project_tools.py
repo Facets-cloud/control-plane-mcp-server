@@ -6,11 +6,96 @@ from typing import List, Dict
 
 mcp = ClientUtils.get_mcp_instance()
 
+@mcp.tool()
+def create_variable(name: str, variable: VariablesModel) -> None:
+    """
+    Create a new variable in the current project.
+
+    Args:
+        name: Name of the variable to create.
+        variable: VariablesModel object of the variable to create.
+
+    Raises:
+        ValueError: If the variable already exists.
+
+    After:
+        Call `get_variable_by_name` to confirm the variable was created correctly and show it to the user.
+    """
+    current_vars = get_secrets_and_vars()
+    current_project = ClientUtils.get_current_project()
+
+    if name in current_vars:
+        raise ValueError(f"The variable '{name}' already exists.")
+
+    variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
+
+    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+    result = api_instance.add_variables_using_post(current_project.name, {name: variable_swagger_instance})
+    ClientUtils.refresh_current_project_and_cache()
+    return result
+
+@mcp.tool()
+def update_variable(name: str, variable: VariablesModel) -> None:
+    """
+    Update an existing variable in the current project.
+
+    Args:
+        name: Name of the variable to update.
+        variable: VariablesModel object of the variable to update.
+
+    Raises:
+        ValueError: If the variable does not exist.
+
+    After:
+        Call `get_variable_by_name` to confirm the updated value and show it to the user.
+    """
+    current_vars = get_secrets_and_vars()
+    current_project = ClientUtils.get_current_project()
+
+    if name not in current_vars:
+        raise ValueError(f"The variable '{name}' does not exist.")
+
+    variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
+
+    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+    result = api_instance.update_variables_using_put(current_project.name, {name: variable_swagger_instance})
+    ClientUtils.refresh_current_project_and_cache()
+
+    return result
+
+@mcp.tool()
+def delete_variable(name: str) -> None:
+    """
+    Delete a variable from the current project.
+
+    Args:
+        name: Name of the variable to delete.
+
+    Raises:
+        ValueError: If the variable does not exist.
+
+    After:
+        Call `get_secrets_and_vars` to confirm the variable was removed and inform the user.
+    """
+    current_vars = get_secrets_and_vars()
+    current_project = ClientUtils.get_current_project()
+
+    if name not in current_vars:
+        raise ValueError(f"The variable '{name}' does not exist.")
+
+    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+    result = api_instance.delete_variables_using_delete(current_project.name, [name])
+    ClientUtils.refresh_current_project_and_cache()
+
+    return result
 
 @mcp.tool()
 def get_all_projects() -> str:
     """
-    Retrieve all projects
+    Retrieve and return the names of **all** projects (stacks).
+
+    Use this only if the user explicitly requests **all projects**,
+    as this can be a large list. For specific queries, use `get_project_details`.
 
     Returns:
         str: List of all projects
@@ -20,7 +105,6 @@ def get_all_projects() -> str:
     # Extract just the stack names and return them as a formatted string
     stack_names = [stack.name for stack in stacks]
     return "\n".join(stack_names) if stack_names else "No projects found"
-
 
 @mcp.tool()
 def use_project(project_name: str):
@@ -38,7 +122,6 @@ def use_project(project_name: str):
     except Exception as e:
         raise ValueError(f"Failed to set project: {str(e)}")
 
-
 @mcp.tool()
 def refresh_current_project():
     """
@@ -52,13 +135,12 @@ def refresh_current_project():
     """
     if not ClientUtils.get_current_project():
         raise ValueError("No current project is set.")
-        
+
     curr_project = ClientUtils.get_current_project()
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
     refreshed_project = api_instance.get_stack_using_get(curr_project.name)
     ClientUtils.set_current_project(refreshed_project)
     return refreshed_project
-
 
 @mcp.tool()
 def get_secrets_and_vars():
@@ -78,123 +160,49 @@ def get_secrets_and_vars():
     # Return the variables from the cached project
     return ClientUtils.get_current_project().cluster_variables_meta
 
-
 @mcp.tool()
-def create_variables(variables: Dict[str, VariablesModel]) -> None:
+def get_project_details(project_name: str):
     """
-    Create multiple new variables in the current project.
+    Fetch details of a specific project by name and check if it exists.
 
     Args:
-        variables: Dictionary with variable names as keys and VariablesModel objects as values.
-                  Each VariablesModel should contain:
-                  - description: (str) Optional description of the variable
-                  - secret: (bool) Whether this is a secret variable
-                  - value: (str) The actual value of the variable
-                  - global: (bool) Always set to False
+        project_name: Name of the project to fetch details for.
 
-        Prompt:
-            Ask the user to describe the variables they want to create — what they're for,
-            whether they should be treated as secrets, and their values. Use this conversation
-            to infer meaningful descriptions and default values. Confirm your understanding
-            with the user and allow edits before creating the variables.
+    Returns:
+        dict: Contains details of the project.
 
     Raises:
-        ValueError: If any of the variables already exist.
+        ValueError: If the project does not exist.
+    
+    Prompt:
+        If a user directly mentions or tries to use a project, use this tool to know its
+         availability and details.
     """
-    current_vars = get_secrets_and_vars()
-    curr_project = ClientUtils.get_current_project()
-    ClientUtils.set_current_project(curr_project)
+    api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
+    project_details = api_instance.get_stack_using_get(project_name)
 
-    # Check if any variables already exist
-    existing_vars = [name for name in variables.keys() if name in current_vars]
-    if existing_vars:
-        raise ValueError(f"The following variables already exist: {', '.join(existing_vars)}")
+    if not project_details:
+        raise ValueError(f"The project '{project_name}' does not exist.")
 
-    # Convert all variables to swagger format
-    variables_swagger_dict = {}
-    for name, var in variables.items():
-        variables_swagger_dict[name] = ClientUtils.pydantic_instance_to_swagger_instance(var, Variables)
-
-    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.add_variables_using_post(curr_project.name, variables_swagger_dict)
-    
-    # Refresh the project to update the cache
-    refresh_current_project()
-    
-    return result
+    return project_details
 
 @mcp.tool()
-def update_variables(variables: Dict[str, VariablesModel]) -> None:
+def get_variable_by_name(name: str):
     """
-    Update multiple existing variables in the current project.
+    Get a specific variable by its name from the current project.
 
     Args:
-        variables: Dictionary with variable names as keys and VariablesModel objects as values.
-                  Each VariablesModel should contain:
-                  - description: (str) Optional description of the variable
-                  - secret: (bool) Whether this is a secret variable
-                  - value: (str) The actual value of the variable
-                  - global: (bool) Always set to False
+        name: Name of the variable to retrieve.
 
-        Prompt:
-            Ask the user which variables they want to update and what changes they want to make.
-            Verify that all variables exist before attempting to update them.
-            Confirm your understanding with the user and allow edits before updating the variables.
+    Returns:
+        VariablesModel: The variable object corresponding to the name.
 
     Raises:
-        ValueError: If any of the variables do not exist.
+        ValueError: If the variable does not exist.
     """
     current_vars = get_secrets_and_vars()
-    curr_project = ClientUtils.get_current_project()
-    ClientUtils.set_current_project(curr_project)
-
-    # Check if all variables exist
-    missing_vars = [name for name in variables.keys() if name not in current_vars]
-    if missing_vars:
-        raise ValueError(f"The following variables do not exist: {', '.join(missing_vars)}")
-
-    # Convert all variables to swagger format
-    variables_swagger_dict = {}
-    for name, var in variables.items():
-        variables_swagger_dict[name] = ClientUtils.pydantic_instance_to_swagger_instance(var, Variables)
-
-    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.update_variables_using_put(curr_project.name, variables_swagger_dict)
     
-    # Refresh the project to update the cache
-    refresh_current_project()
-    
-    return result
+    if name not in current_vars:
+        raise ValueError(f"The variable '{name}' does not exist.")
 
-@mcp.tool()
-def delete_variables(variable_names: List[str]) -> None:
-    """
-    Delete multiple variables from the current project.
-
-    Args:
-        variable_names: List of names of the variables to delete.
-
-        Prompt:
-            Ask the user which variables they want to delete.
-            Confirm deletion with the user before proceeding as this action cannot be undone.
-            Verify that all variables exist before attempting to delete them.
-
-    Raises:
-        ValueError: If any of the variables do not exist.
-    """
-    current_vars = get_secrets_and_vars()
-    curr_project = ClientUtils.get_current_project()
-    ClientUtils.set_current_project(curr_project)
-
-    # Check if all variables exist
-    missing_vars = [name for name in variable_names if name not in current_vars]
-    if missing_vars:
-        raise ValueError(f"The following variables do not exist: {', '.join(missing_vars)}")
-
-    api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.delete_variables_using_delete(curr_project.name, variable_names)
-    
-    # Refresh the project to update the cache
-    refresh_current_project()
-    
-    return result
+    return current_vars[name]
