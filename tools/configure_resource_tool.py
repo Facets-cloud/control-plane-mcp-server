@@ -17,11 +17,11 @@ def get_all_resources_by_project(project_name: str) -> List[Dict[str, Any]]:
         project_name: The name of the project to retrieve resources for
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-    
+
     try:
         # Call the API to get all resources for the project
         resources = api_instance.get_all_resources_by_stack_using_get(project_name, include_content=True)
-        
+
         # Extract and transform the relevant information
         result = []
         for resource in resources:
@@ -33,9 +33,9 @@ def get_all_resources_by_project(project_name: str) -> List[Dict[str, Any]]:
                 "content": json.loads(resource.content) if resource.content else None
             }
             result.append(resource_data)
-            
+
         return result
-    
+
     except Exception as e:
         raise ValueError(f"Failed to get resources for project '{project_name}': {str(e)}")
 
@@ -43,19 +43,26 @@ def get_all_resources_by_project(project_name: str) -> List[Dict[str, Any]]:
 @mcp.tool()
 def get_resource_by_project(project_name: str, resource_type: str, resource_name: str) -> Dict[str, Any]:
     """
-    Get a specific resource by type and name for a project.
+        Get a specific resource by type and name for a project.
 
-    Args:
-        project_name: The name of the project to retrieve the resource from
-        resource_type: The type of resource to retrieve (e.g., service, ingress, postgres, redis)
-        resource_name: The name of the specific resource to retrieve
+        This returns the current configuration of the resource. The "content" field contains
+        the resource's actual configuration that would be validated against the schema from
+        get_spec_for_resource() when making updates.
+
+        Args:
+            project_name: The name of the project to retrieve the resource from
+            resource_type: The type of resource to retrieve (e.g., service, ingress, postgres, redis)
+            resource_name: The name of the specific resource to retrieve
+
+        Returns:
+            Resource details including name, type, and current configuration in the "content" field
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-    
+
     try:
         # Call the API directly with resource name, type, and project name
         resource = api_instance.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
-        
+
         # Format the response
         resource_data = {
             "name": resource.resource_name,
@@ -65,45 +72,53 @@ def get_resource_by_project(project_name: str, resource_type: str, resource_name
             "content": json.loads(resource.content) if resource.content else None,
             "info": resource.info.to_dict() if resource.info else None  # Add the info object as a separate field
         }
-            
+
         return resource_data
-        
+
     except Exception as e:
-        raise ValueError(f"Failed to get resource '{resource_name}' of type '{resource_type}' for project '{project_name}': {str(e)}")
+        raise ValueError(
+            f"Failed to get resource '{resource_name}' of type '{resource_type}' for project '{project_name}': {str(e)}")
 
 
 @mcp.tool()
 def get_spec_for_resource(project_name: str, resource_type: str, resource_name: str) -> Dict[str, Any]:
     """
-    Get specification details for a specific resource in a project.
+        Get specification details for a specific resource in a project.
 
-    Args:
-        project_name: The name of the project the resource belongs to
-        resource_type: The type of resource (e.g., service, ingress, postgres, redis)
-        resource_name: The name of the specific resource
+        This returns the schema that defines valid fields, allowed values, and validation rules
+        for the resource. Use this spec before updating resources to understand the available
+        configuration options and requirements.
+
+        Args:
+            project_name: The name of the project the resource belongs to
+            resource_type: The type of resource (e.g., service, ingress, postgres, redis)
+            resource_name: The name of the specific resource
+
+        Returns:
+            A schema specification that describes all valid fields and values for this resource type
     """
     # First, get the resource details to extract intent, flavor, and version
     try:
         # Get the specific resource
         resource = get_resource_by_project(project_name, resource_type, resource_name)
-        
+
         # Extract intent (resource_type), flavor, and version from info
         if not resource.get("info"):
             raise ValueError(f"Resource '{resource_name}' of type '{resource_type}' does not have info data")
-        
+
         # Get info section
         info = resource["info"]
-        
+
         # Extract flavor and version
         flavor = info.get("flavour")  # Note: flavour is the field name used in the Info model
         version = info.get("version")
-        
+
         # Validate required fields
         if not flavor:
             raise ValueError(f"Resource '{resource_name}' of type '{resource_type}' does not have a flavor defined")
         if not version:
             raise ValueError(f"Resource '{resource_name}' of type '{resource_type}' does not have a version defined")
-            
+
         # Now call the TF Module API to get the spec
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
         module_response = api_instance.get_module_for_ifv_and_stack_using_get(
@@ -112,16 +127,17 @@ def get_spec_for_resource(project_name: str, resource_type: str, resource_name: 
             stack_name=project_name,
             version=version
         )
-        
+
         # Extract and parse the spec from the response
         if not module_response.spec:
             raise ValueError(f"No specification found for resource '{resource_name}' of type '{resource_type}'")
-            
+
         # Return the spec as a JSON object
         return json.loads(module_response.spec)
-        
+
     except Exception as e:
-        raise ValueError(f"Failed to get specification for resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {str(e)}")
+        raise ValueError(
+            f"Failed to get specification for resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {str(e)}")
 
 
 @mcp.tool()
@@ -129,19 +145,24 @@ def update_resource(project_name: str, resource_type: str, resource_name: str, c
     """
     Update a specific resource in a project.
 
+    Before using this tool, it's recommended to first call get_spec_for_resource() to
+    understand the valid fields and values for this resource type. The content provided
+    must conform to the specification schema for the update to succeed.
+
     Args:
         project_name: The name of the project containing the resource
         resource_type: The type of resource to update (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource to update
-        content: The updated content for the resource as a dictionary
+        content: The updated content for the resource as a dictionary. This must conform
+                to the schema returned by get_spec_for_resource().
 
     Raises:
-        ValueError: If the resource doesn't exist or update fails
+        ValueError: If the resource doesn't exist, update fails, or content doesn't match the required schema
     """
     try:
         # First, get the current resource to obtain metadata
         current_resource = get_resource_by_project(project_name, resource_type, resource_name)
-        
+
         # Create a ResourceFileRequest instance with the updated content
         resource_request = ResourceFileRequest()
         resource_request.content = content
@@ -149,17 +170,18 @@ def update_resource(project_name: str, resource_type: str, resource_name: str, c
         resource_request.filename = current_resource.get("filename")
         resource_request.resource_name = resource_name
         resource_request.resource_type = resource_type
-        
-        # Get default branch (typically "master")
+
+        # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
         stack = api_stack.get_stack_using_get(project_name)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
-        
+
         # Create an API instance and update the resource
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
         result = api_instance.update_resources_using_put(branch, [resource_request], project_name)
-        
+
         return result
-        
+
     except Exception as e:
-        raise ValueError(f"Failed to update resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {str(e)}")
+        raise ValueError(
+            f"Failed to update resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {str(e)}")
