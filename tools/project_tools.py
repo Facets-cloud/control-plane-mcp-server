@@ -17,9 +17,6 @@ def create_variable(name: str, variable: VariablesModel) -> None:
 
     Raises:
         ValueError: If the variable already exists.
-
-    After:
-        Call `get_variable_by_name` to confirm the variable was created correctly and show it to the user.
     """
     current_vars = get_secrets_and_vars()
     current_project = ClientUtils.get_current_project()
@@ -45,9 +42,6 @@ def update_variable(name: str, variable: VariablesModel) -> None:
 
     Raises:
         ValueError: If the variable does not exist.
-
-    After:
-        Call `get_variable_by_name` to confirm the updated value and show it to the user.
     """
     current_vars = get_secrets_and_vars()
     current_project = ClientUtils.get_current_project()
@@ -64,19 +58,20 @@ def update_variable(name: str, variable: VariablesModel) -> None:
     return result
 
 @mcp.tool()
-def delete_variable(name: str) -> None:
+def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
     """
     Delete a variable from the current project.
 
     Args:
         name: Name of the variable to delete.
+        confirmed_by_user: Flag to check if changes have been confirmed by the user.
 
     Raises:
-        ValueError: If the variable does not exist.
-
-    After:
-        Call `get_secrets_and_vars` to confirm the variable was removed and inform the user.
+        ValueError: If the variable does not exist or if changes have not been confirmed.
     """
+    if not confirmed_by_user:
+        raise ValueError("You need to confirm the changes with the user first as this is a destructive change.")
+
     current_vars = get_secrets_and_vars()
     current_project = ClientUtils.get_current_project()
 
