@@ -2,6 +2,8 @@
 
 from tools.project_tools import *
 
+from tools.configure_resource_tool import *
+
 def _test_login() -> bool:
     """
     Test login using the ApplicationController.
