@@ -1,8 +1,8 @@
 # Initialize configuration and MCP instance
+import swagger_client
+from utils.client_utils import ClientUtils
+from tools import *
 
-from tools.project_tools import *
-
-from tools.configure_resource_tool import *
 
 def _test_login() -> bool:
     """
