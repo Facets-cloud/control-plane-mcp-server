@@ -30,7 +30,7 @@ def get_all_resources_by_project(project_name: str) -> List[Dict[str, Any]]:
 
             # Safely check if resource.info.ui.base_resource exists and is True
             try:
-                if resource.info and resource.info.ui and resource.info.ui.base_resource:
+                if resource.info and resource.info.ui and resource.info.ui.get("base_resource"):
                     should_exclude = True
             except AttributeError:
                 # If any attribute is missing along the path, don't exclude
@@ -206,7 +206,8 @@ def update_resource(project_name: str, resource_type: str, resource_name: str, c
 
 
 @mcp.tool()
-def add_resource(project_name: str, resource_type: str, resource_name: str, flavor: str = None, version: str = None, content: Dict[str, Any] = None) -> None:
+def add_resource(project_name: str, resource_type: str, resource_name: str, flavor: str = None, version: str = None,
+                 content: Dict[str, Any] = None) -> None:
     """
     Add a new resource to a project.
 
@@ -236,17 +237,17 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
         # If flavor is not provided, prompt the user
         if not flavor:
             raise ValueError(f"Flavor must be specified for creating a new resource of type '{resource_type}'. "
-                            "Please provide a flavor parameter.")
+                             "Please provide a flavor parameter.")
 
         # If version is not provided, prompt the user
         if not version:
             raise ValueError(f"Version must be specified for creating a new resource of type '{resource_type}'. "
-                            "Please provide a version parameter.")
+                             "Please provide a version parameter.")
 
         # Check if content is provided
         if not content:
             raise ValueError(f"Content must be specified for creating a new resource of type '{resource_type}'. "
-                            "First use get_sample_for_module() to get a template, then customize it.")
+                             "First use get_sample_for_module() to get a template, then customize it.")
 
         # Create a ResourceFileRequest instance with the resource details
         resource_request = ResourceFileRequest()
@@ -293,7 +294,8 @@ def delete_resource(project_name: str, resource_type: str, resource_name: str) -
         try:
             get_resource_by_project(project_name, resource_type, resource_name)
         except ValueError:
-            raise ValueError(f"Resource '{resource_name}' of type '{resource_type}' not found in project '{project_name}'")
+            raise ValueError(
+                f"Resource '{resource_name}' of type '{resource_type}' not found in project '{project_name}'")
 
         # Create a ResourceFileRequest instance for the resource to delete
         resource_request = ResourceFileRequest()
@@ -349,17 +351,19 @@ def get_spec_for_module(project_name: str, intent: str, flavor: str, version: st
             stack_name=project_name,
             version=version
         )
-        
+
         # Extract and parse the spec from the response
         if not module_response.spec:
-            raise ValueError(f"No specification found for module with intent '{intent}', flavor '{flavor}', version '{version}'")
-            
+            raise ValueError(
+                f"No specification found for module with intent '{intent}', flavor '{flavor}', version '{version}'")
+
         # Return the spec as a JSON object
         return json.loads(module_response.spec)
-        
+
     except Exception as e:
         raise ValueError(
             f"Failed to get specification for module with intent '{intent}', flavor '{flavor}', version '{version}' in project '{project_name}': {str(e)}")
+
 
 @mcp.tool()
 def get_sample_for_module(project_name: str, intent: str, flavor: str, version: str) -> Dict[str, Any]:
@@ -392,17 +396,19 @@ def get_sample_for_module(project_name: str, intent: str, flavor: str, version: 
             stack_name=project_name,
             version=version
         )
-        
+
         # Extract and parse the sample JSON from the response
         if not module_response.sample_json:
-            raise ValueError(f"No sample JSON found for module with intent '{intent}', flavor '{flavor}', version '{version}'")
-            
+            raise ValueError(
+                f"No sample JSON found for module with intent '{intent}', flavor '{flavor}', version '{version}'")
+
         # Return the sample JSON as a JSON object
         return json.loads(module_response.sample_json)
-        
+
     except Exception as e:
         raise ValueError(
             f"Failed to get sample JSON for module with intent '{intent}', flavor '{flavor}', version '{version}' in project '{project_name}': {str(e)}")
+
 
 @mcp.tool()
 def list_available_resources(project_name: str) -> List[Dict[str, Any]]:
@@ -430,13 +436,13 @@ def list_available_resources(project_name: str) -> List[Dict[str, Any]]:
     try:
         # Create an API instance
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
-        
+
         # Get grouped modules for the specified project
         response = api_instance.get_grouped_modules_for_stack_using_get(project_name)
-        
+
         # Process the response to extract resource information
         result = []
-        
+
         # The resources property is a nested dictionary structure
         # The first level key is not relevant (usually 'resources')
         # The second level key is the intent (resource type)
@@ -454,8 +460,8 @@ def list_available_resources(project_name: str) -> List[Dict[str, Any]]:
                                 "display_name": resource_info.display_name or resource_type,
                             }
                             result.append(resource_data)
-        
+
         return result
-    
+
     except Exception as e:
         raise ValueError(f"Failed to list available resources for project '{project_name}': {str(e)}")
