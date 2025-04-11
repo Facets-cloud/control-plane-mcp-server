@@ -30,6 +30,8 @@ def get_all_resources_by_project(project_name: str) -> List[Dict[str, Any]]:
 
             # Safely check if resource.info.ui.base_resource exists and is True
             try:
+                if not resource.directory:
+                    should_exclude = True
                 if resource.info and resource.info.ui and resource.info.ui.get("base_resource"):
                     should_exclude = True
             except AttributeError:
@@ -290,15 +292,12 @@ def delete_resource(project_name: str, resource_type: str, resource_name: str) -
         ValueError: If the resource doesn't exist or deletion fails
     """
     try:
-        # First, check if the resource exists
-        try:
-            get_resource_by_project(project_name, resource_type, resource_name)
-        except ValueError:
-            raise ValueError(
-                f"Resource '{resource_name}' of type '{resource_type}' not found in project '{project_name}'")
+        # First, get the current resource to obtain metadata
+        current_resource = get_resource_by_project(project_name, resource_type, resource_name)
 
-        # Create a ResourceFileRequest instance for the resource to delete
         resource_request = ResourceFileRequest()
+        resource_request.directory = current_resource.get("directory")
+        resource_request.filename = current_resource.get("filename")
         resource_request.resource_name = resource_name
         resource_request.resource_type = resource_type
 
