@@ -374,11 +374,18 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
             # Add inputs to the content dictionary
             formatted_inputs = {}
             for input_name, input_value in inputs.items():
-                formatted_inputs[input_name] = {
-                    "output_name": input_value.get('output_name'),
+                # Create input entry without output_name first
+                input_entry = {
                     "resource_name": input_value.get('resource_name'),
                     "resource_type": input_value.get('resource_type')
                 }
+                
+                # Only add output_name if it's not 'default'
+                output_name = input_value.get('output_name')
+                if output_name and output_name != 'default':
+                    input_entry["output_name"] = output_name
+                    
+                formatted_inputs[input_name] = input_entry
             
             # Add the inputs to the content dictionary
             content["inputs"] = formatted_inputs
