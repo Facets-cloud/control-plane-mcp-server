@@ -208,20 +208,113 @@ def update_resource(project_name: str, resource_type: str, resource_name: str, c
 
 
 @mcp.tool()
+def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dict[str, Dict[str, Any]]:
+    """
+    Get required inputs for a module before adding a resource.
+    
+    IMPORTANT: This tool MUST be called before attempting to add a resource using add_resource().
+    It checks what inputs are required for a specific module and what existing resources are compatible
+    with each input.
+    
+    Each module input will have:
+    - 'optional': Boolean indicating if this input is required
+    - 'compatible_resources': List of resources that can be used for this input
+    
+    If there are multiple compatible resources for a required input, DO NOT select one automatically.
+    Instead, you MUST ASK THE USER to choose which resource they want to use for each input.
+    Present them with the options and get their explicit selection.
+    
+    For each non-optional input, you must select a compatible resource and include it in the 
+    'inputs' parameter of add_resource(). If an input is not optional and has no compatible
+    resources, the resource cannot be added until those dependencies are created.
+    
+    Example workflow:
+    1. Call get_module_inputs('my-project', 'service', 'default')
+    2. If it returns an input 'database' that is not optional and has multiple compatible resources:
+       - Present the options to the user: "I see you need to select a database input. Available options are: X, Y, Z. Which would you like to use?"
+       - Use their selection when calling add_resource()
+    
+    Args:
+        project_name: The name of the project to add the resource to
+        resource_type: The type of resource to create (e.g., service, ingress, postgres) - this is the same as 'intent'
+        flavor: The flavor of the resource to create
+        
+    Returns:
+        A dictionary of input names to their details, including compatible resources
+    """
+    try:
+        # Create an API instance
+        api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+        
+        # Call the API to get module inputs
+        module_inputs = api_instance.get_module_inputs_using_get(flavor, resource_type, project_name)
+        
+        # Format the response for easier consumption
+        result = {}
+        for input_name, input_data in module_inputs.items():
+            # Extract compatible resources
+            compatible_resources = []
+            if input_data.compatible_resources:
+                for resource in input_data.compatible_resources:
+                    compatible_resources.append({
+                        "output_name": resource.output_name,
+                        "resource_name": resource.resource_name,
+                        "resource_type": resource.resource_type
+                    })
+            
+            # Format input data
+            result[input_name] = {
+                "display_name": input_data.display_name,
+                "description": input_data.description,
+                "optional": input_data.optional,
+                "type": input_data.type,
+                "compatible_resources": compatible_resources
+            }
+        
+        return result
+        
+    except Exception as e:
+        raise ValueError(f"Failed to get module inputs for resource type '{resource_type}' with flavor '{flavor}' in project '{project_name}': {str(e)}")
+
+@mcp.tool()
 def add_resource(project_name: str, resource_type: str, resource_name: str, flavor: str = None, version: str = None,
-                 content: Dict[str, Any] = None) -> None:
+                 content: Dict[str, Any] = None, inputs: Dict[str, Dict[str, str]] = None) -> None:
     """
     Add a new resource to a project.
 
-    This function creates a new resource in the specified project. Follow these steps for resource creation:
+    This function creates a new resource in the specified project. It's critical to follow the
+    complete resource creation workflow to ensure all required inputs are provided.
+    
+    IMPORTANT: Before calling this tool, you MUST call get_module_inputs() to check what inputs
+    are required for the resource you want to create. If there are non-optional inputs with compatible
+    resources, you must ASK THE USER to select one for each input and provide them in the 'inputs' parameter.
+    Never select resources for inputs automatically, unless there is just one - always ask the user for their preference.
     
     Step-by-step resource creation flow:
     1. Call list_available_resources(project_name) to see available resources
     2. From the results, select a resource_type/intent (e.g., 'service', 'postgres') and note the flavor and version
-    3. Call get_spec_for_module(project_name, resource_type, flavor, version) to understand the schema
-    4. Call get_sample_for_module(project_name, resource_type, flavor, version) to get a sample template
-    5. Customize the template from step 4 according to user requirements
-    6. Call add_resource() with all the parameters including the customized content
+    3. Call get_module_inputs(project_name, resource_type, flavor) to check required inputs and compatible resources
+       - For each required input with multiple compatible resources, ASK THE USER which one to use
+       - Present the options clearly: "For the 'database' input, I see these compatible resources: X, Y, Z. Which would you like to use?"
+       - If a required input has no compatible resources, you must create those dependencies first
+    4. Call get_spec_for_module(project_name, resource_type, flavor, version) to understand the schema
+    5. Call get_sample_for_module(project_name, resource_type, flavor, version) to get a sample template
+    6. Customize the template from step 5 according to user requirements
+    7. Call add_resource() with all the parameters including:
+       - The customized content
+       - A map of inputs where each key is an input name and each value is a dict with:
+         * resource_name: The name of the selected resource
+         * resource_type: The type of the selected resource
+         * output_name: The output name of the selected resource
+
+    Example inputs parameter:
+    {
+        "database": {
+            "resource_name": "my-postgres",
+            "resource_type": "postgres",
+            "output_name": "postgres_connection"
+        }
+    }
 
     Args:
         project_name: The name of the project to add the resource to
@@ -231,6 +324,8 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
         version: The version of the resource - must match the version from list_available_resources
         content: The content/configuration for the resource as a dictionary. This must conform
                 to the schema for the specified resource type and flavor.
+        inputs: A dictionary mapping input names to selected resources. Each value should be a dictionary with
+               'resource_name', 'resource_type', and 'output_name' keys.
 
     Raises:
         ValueError: If the resource already exists, creation fails, or required parameters are missing
@@ -250,9 +345,44 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
         if not content:
             raise ValueError(f"Content must be specified for creating a new resource of type '{resource_type}'. "
                              "First use get_sample_for_module() to get a template, then customize it.")
+        
+        # Check if inputs should be validated
+        if inputs is None:
+            # Get the module inputs to check if there are any required inputs
+            module_inputs = get_module_inputs(project_name, resource_type, flavor)
+            required_inputs = [input_name for input_name, input_data in module_inputs.items() 
+                               if not input_data.get("optional", False) and input_data.get("compatible_resources")]
+            
+            if required_inputs:
+                input_list = ", ".join(required_inputs)
+                raise ValueError(f"Inputs must be specified for creating a resource of type '{resource_type}'. "
+                                 f"The following inputs are required: {input_list}. "
+                                 f"Call get_module_inputs('{project_name}', '{resource_type}', '{flavor}') "
+                                 f"to see all required inputs and their compatible resources.")
 
         # Create a ResourceFileRequest instance with the resource details
         resource_request = ResourceFileRequest()
+        
+        # If inputs are provided, add them to the content dictionary
+        if inputs:
+            # Create a copy of the content to avoid modifying the original
+            if content is None:
+                content = {}
+            else:
+                content = dict(content)  # Create a shallow copy
+                
+            # Add inputs to the content dictionary
+            formatted_inputs = {}
+            for input_name, input_value in inputs.items():
+                formatted_inputs[input_name] = {
+                    "output_name": input_value.get('output_name'),
+                    "resource_name": input_value.get('resource_name'),
+                    "resource_type": input_value.get('resource_type')
+                }
+            
+            # Add the inputs to the content dictionary
+            content["inputs"] = formatted_inputs
+        
         resource_request.content = content
         resource_request.resource_name = resource_name
         resource_request.resource_type = resource_type
@@ -422,8 +552,12 @@ def list_available_resources(project_name: str) -> List[Dict[str, Any]]:
     1. A resource_type/intent (e.g., 'service', 'ingress', 'postgres', 'redis')
     2. A specific flavor for that resource_type
 
-    The response contains both these required parameters, so review the results carefully
-    before proceeding to add_resource().
+    Complete resource creation workflow:
+    1. Call list_available_resources() to find available resource types and flavors
+    2. Call get_module_inputs() to check what inputs are required for the chosen resource
+    3. Call get_spec_for_module() to understand the configuration schema
+    4. Call get_sample_for_module() to get a template
+    5. Call add_resource() with the customized content and required inputs
 
     Args:
         project_name: The name of the project to list available resources for
