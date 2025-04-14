@@ -6,6 +6,7 @@ from typing import List, Dict
 
 mcp = ClientUtils.get_mcp_instance()
 
+
 @mcp.tool()
 def create_variable(name: str, variable: VariablesModel) -> None:
     """
@@ -30,6 +31,7 @@ def create_variable(name: str, variable: VariablesModel) -> None:
     result = api_instance.add_variables_using_post(current_project.name, {name: variable_swagger_instance})
     ClientUtils.refresh_current_project_and_cache()
     return result
+
 
 @mcp.tool()
 def update_variable(name: str, variable: VariablesModel) -> None:
@@ -57,6 +59,7 @@ def update_variable(name: str, variable: VariablesModel) -> None:
 
     return result
 
+
 @mcp.tool()
 def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
     """
@@ -65,6 +68,7 @@ def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
     Args:
         name: Name of the variable to delete.
         confirmed_by_user: Flag to check if changes have been confirmed by the user.
+        IMPORTANT: Only send this true if you have asked user and warned him that this will remove variable and is a destructive action
 
     Raises:
         ValueError: If the variable does not exist or if changes have not been confirmed.
@@ -84,6 +88,7 @@ def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
 
     return result
 
+
 @mcp.tool()
 def get_all_projects() -> str:
     """
@@ -101,6 +106,7 @@ def get_all_projects() -> str:
     stack_names = [stack.name for stack in stacks]
     return "\n".join(stack_names) if stack_names else "No projects found"
 
+
 @mcp.tool()
 def use_project(project_name: str):
     """
@@ -116,6 +122,7 @@ def use_project(project_name: str):
         return f"Current project set to {project.name}"
     except Exception as e:
         raise ValueError(f"Failed to set project: {str(e)}")
+
 
 @mcp.tool()
 def refresh_current_project():
@@ -137,6 +144,7 @@ def refresh_current_project():
     ClientUtils.set_current_project(refreshed_project)
     return refreshed_project
 
+
 @mcp.tool()
 def get_secrets_and_vars():
     """
@@ -154,6 +162,7 @@ def get_secrets_and_vars():
 
     # Return the variables from the cached project
     return ClientUtils.get_current_project().cluster_variables_meta
+
 
 @mcp.tool()
 def get_project_details(project_name: str):
@@ -181,6 +190,7 @@ def get_project_details(project_name: str):
 
     return project_details
 
+
 @mcp.tool()
 def get_variable_by_name(name: str):
     """
@@ -196,7 +206,7 @@ def get_variable_by_name(name: str):
         ValueError: If the variable does not exist.
     """
     current_vars = get_secrets_and_vars()
-    
+
     if name not in current_vars:
         raise ValueError(f"The variable '{name}' does not exist.")
 
