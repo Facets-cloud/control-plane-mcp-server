@@ -97,7 +97,7 @@ def get_resource_by_project(project_name: str, resource_type: str, resource_name
 @mcp.tool()
 def get_spec_for_resource(project_name: str, resource_type: str, resource_name: str) -> Dict[str, Any]:
     """
-        Get specification details for a specific resource in a project.
+        Get specification details for the module mapped to a specific resource in a project.
 
         This returns the schema that defines valid fields, allowed values, and validation rules
         ONLY for the "spec" part of the resource JSON. A complete resource JSON has other fields 
@@ -108,6 +108,9 @@ def get_spec_for_resource(project_name: str, resource_type: str, resource_name: 
         
         Use this spec before updating resources to understand the available configuration options 
         and requirements for the "spec" section specifically.
+        
+        Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref),
+        call explain_ui_annotation() with the annotation name to understand how to handle them properly.
 
         Args:
             project_name: The name of the project the resource belongs to
@@ -245,10 +248,10 @@ def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dic
     try:
         # Create an API instance
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-        
+
         # Call the API to get module inputs
         module_inputs = api_instance.get_module_inputs_using_get(flavor, resource_type, project_name)
-        
+
         # Format the response for easier consumption
         result = {}
         for input_name, input_data in module_inputs.items():
@@ -261,7 +264,7 @@ def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dic
                         "resource_name": resource.resource_name,
                         "resource_type": resource.resource_type
                     })
-            
+
             # Format input data
             result[input_name] = {
                 "display_name": input_data.display_name,
@@ -270,11 +273,13 @@ def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dic
                 "type": input_data.type,
                 "compatible_resources": compatible_resources
             }
-        
+
         return result
-        
+
     except Exception as e:
-        raise ValueError(f"Failed to get module inputs for resource type '{resource_type}' with flavor '{flavor}' in project '{project_name}': {str(e)}")
+        raise ValueError(
+            f"Failed to get module inputs for resource type '{resource_type}' with flavor '{flavor}' in project '{project_name}': {str(e)}")
+
 
 @mcp.tool()
 def add_resource(project_name: str, resource_type: str, resource_name: str, flavor: str = None, version: str = None,
@@ -345,14 +350,14 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
         if not content:
             raise ValueError(f"Content must be specified for creating a new resource of type '{resource_type}'. "
                              "First use get_sample_for_module() to get a template, then customize it.")
-        
+
         # Check if inputs should be validated
         if inputs is None:
             # Get the module inputs to check if there are any required inputs
             module_inputs = get_module_inputs(project_name, resource_type, flavor)
-            required_inputs = [input_name for input_name, input_data in module_inputs.items() 
+            required_inputs = [input_name for input_name, input_data in module_inputs.items()
                                if not input_data.get("optional", False) and input_data.get("compatible_resources")]
-            
+
             if required_inputs:
                 input_list = ", ".join(required_inputs)
                 raise ValueError(f"Inputs must be specified for creating a resource of type '{resource_type}'. "
@@ -362,7 +367,7 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
 
         # Create a ResourceFileRequest instance with the resource details
         resource_request = ResourceFileRequest()
-        
+
         # If inputs are provided, add them to the content dictionary
         if inputs:
             # Create a copy of the content to avoid modifying the original
@@ -370,7 +375,7 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
                 content = {}
             else:
                 content = dict(content)  # Create a shallow copy
-                
+
             # Add inputs to the content dictionary
             formatted_inputs = {}
             for input_name, input_value in inputs.items():
@@ -379,17 +384,17 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
                     "resource_name": input_value.get('resource_name'),
                     "resource_type": input_value.get('resource_type')
                 }
-                
+
                 # Only add output_name if it's not 'default'
                 output_name = input_value.get('output_name')
                 if output_name and output_name != 'default':
                     input_entry["output_name"] = output_name
-                    
+
                 formatted_inputs[input_name] = input_entry
-            
+
             # Add the inputs to the content dictionary
             content["inputs"] = formatted_inputs
-        
+
         resource_request.content = content
         resource_request.resource_name = resource_name
         resource_request.resource_type = resource_type
@@ -468,6 +473,9 @@ def get_spec_for_module(project_name: str, intent: str, flavor: str, version: st
     
     Use this spec before creating or updating resources to understand the available 
     configuration options and requirements for the "spec" section specifically.
+        
+    Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref),
+    call explain_ui_annotation() with the annotation name to understand how to handle them properly.
     
     Args:
         project_name: The name of the project to get the module specification for
@@ -544,6 +552,63 @@ def get_sample_for_module(project_name: str, intent: str, flavor: str, version: 
     except Exception as e:
         raise ValueError(
             f"Failed to get sample JSON for module with intent '{intent}', flavor '{flavor}', version '{version}' in project '{project_name}': {str(e)}")
+
+
+@mcp.tool()
+def explain_ui_annotation(annotation_name: str) -> str:
+    """
+    Get explanation and handling instructions for UI annotations in resource specifications.
+    
+    In the specification of modules, fields may contain special UI annotations that start with "x-ui-". 
+    These annotations provide additional instructions on how to handle and process these fields.
+    You should use this information when generating or modifying resource specifications.
+    
+    Args:
+        annotation_name: The name of the UI annotation to explain (e.g., "x-ui-secret-ref")
+        
+    Returns:
+        Detailed explanation of the annotation and instructions for handling fields with this annotation
+    """
+    # Dictionary of known UI annotations with their explanations and handling instructions
+    ui_annotations = {
+        "x-ui-secret-ref": {
+            "description": "Indicates that the field value should be treated as sensitive and stored as a secret.",
+            "handling": """
+When a field has 'x-ui-secret-ref' set to true:
+
+1. DO NOT insert the actual value directly in the resource JSON
+2. Instead, use the reference format: "${blueprint.self.secrets.<name_of_secret>}" 
+3. Ask the user if a secret has already been created for this field
+4. If no existing secret, ask if they want to create one with an appropriate name
+5. To create a new secret, call the 'create_variables' tool with appropriate parameters
+
+Example:
+If a database password field has 'x-ui-secret-ref: true', instead of:
+  "password": "actual-password-here"
+Use:
+  "password": "${blueprint.self.secrets.db_password}"
+"""
+        },
+        # Add more annotations here as they are discovered/implemented
+    }
+
+    # Check if the annotation exists in our dictionary
+    if annotation_name in ui_annotations:
+        annotation = ui_annotations[annotation_name]
+
+        # Format the response
+        response = f"# {annotation_name}\n\n"
+        response += f"**Description:** {annotation['description']}\n\n"
+        response += f"**Handling Instructions:**\n{annotation['handling']}"
+
+        return response
+
+    # For unknown annotations, provide a generic response
+    return f"""
+# {annotation_name}
+
+Unknown UI annotation. You can ignore this annotation and proceed normally.
+"""
 
 
 @mcp.tool()
