@@ -111,6 +111,7 @@ def get_spec_for_resource(project_name: str, resource_type: str, resource_name: 
         
         Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref),
         call explain_ui_annotation() with the annotation name to understand how to handle them properly.
+        For now, just x-ui-secret-ref. Ignore all others.
 
         Args:
             project_name: The name of the project the resource belongs to
