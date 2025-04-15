@@ -109,9 +109,8 @@ def get_spec_for_resource(project_name: str, resource_type: str, resource_name: 
         Use this spec before updating resources to understand the available configuration options 
         and requirements for the "spec" section specifically.
         
-        Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref),
+        Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref, x-ui-output-type),
         call explain_ui_annotation() with the annotation name to understand how to handle them properly.
-        For now, just x-ui-secret-ref. Ignore all others.
 
         Args:
             project_name: The name of the project the resource belongs to
@@ -475,7 +474,7 @@ def get_spec_for_module(project_name: str, intent: str, flavor: str, version: st
     Use this spec before creating or updating resources to understand the available 
     configuration options and requirements for the "spec" section specifically.
         
-    Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref),
+    Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref, x-ui-output-type),
     call explain_ui_annotation() with the annotation name to understand how to handle them properly.
     
     Args:
@@ -556,6 +555,46 @@ def get_sample_for_module(project_name: str, intent: str, flavor: str, version: 
 
 
 @mcp.tool()
+def get_output_references(project_name: str, output_type: str) -> List[Dict[str, Any]]:
+    """
+    Get a list of available output references from resources in a project based on the output type.
+    
+    This tool is used in conjunction with the x-ui-output-type annotation to allow users to select
+    outputs from existing resources to reference in their resource configuration.
+    
+    Args:
+        project_name: The name of the project to retrieve output references from
+        output_type: The type of output to search for (e.g., "iam_policy_arn", "database_connection_string")
+        
+    Returns:
+        A list of output references with resource details and output information
+    """
+    try:
+        api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
+        
+        # Call the API to get output references
+        references = api_instance.get_output_references_using_get(output_type, project_name)
+        
+        # Format the response to make it easier to present to users
+        formatted_references = []
+        for ref in references:
+            formatted_ref = {
+                "resource_type": ref.resource_type,
+                "resource_name": ref.resource_name,
+                "output_name": ref.output_name,
+                "output_title": ref.output_title,
+                # Create a fully formatted reference string
+                "reference": f"${{{ref.resource_type}.{ref.resource_name}.out.{ref.output_name}}}"
+            }
+            formatted_references.append(formatted_ref)
+            
+        return formatted_references
+        
+    except Exception as e:
+        raise ValueError(f"Failed to get output references for project '{project_name}' and output type '{output_type}': {str(e)}")
+
+
+@mcp.tool()
 def explain_ui_annotation(annotation_name: str) -> str:
     """
     Get explanation and handling instructions for UI annotations in resource specifications.
@@ -588,6 +627,24 @@ If a database password field has 'x-ui-secret-ref: true', instead of:
   "password": "actual-password-here"
 Use:
   "password": "${blueprint.self.secrets.db_password}"
+"""
+        },
+        "x-ui-output-type": {
+            "description": "Indicates that the field can reference output from another resource in the project.",
+            "handling": """
+When a field has 'x-ui-output-type' set to a value (e.g., "iam_policy_arn", "database_connection_string"):
+
+1. Call the 'get_output_references' tool with the project name and the output type value
+2. Ask the user to choose one of the outputs from the list of available references
+3. Do not select an output automatically unless there is only one option or it is clearly implied by the context
+4. Use the 'reference' value directly from the tool output in the field
+5. If the field also has 'x-ui-typeable: true', the user can either select an output reference or provide their own custom value
+
+Example:
+If an 'apiUrl' field has 'x-ui-output-type: "iam_policy_arn"', after calling get_output_references:
+- Present the options: "For the API URL, I can reference outputs from other resources. Available options are: [list options]"
+- After user selects: "Using reference to API Gateway URL"
+- Set the value using the 'reference' field from the selected output
 """
         },
         # Add more annotations here as they are discovered/implemented
