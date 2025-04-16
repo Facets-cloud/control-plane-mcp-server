@@ -1,25 +1,26 @@
 from utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import ResourceFileRequest
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any
 import json
-import os
-from tools import project_tools
 
 mcp = ClientUtils.get_mcp_instance()
 
 
 @mcp.tool()
-def get_all_resources_by_project(project_name: str) -> List[Dict[str, Any]]:
+def get_all_resources_by_project() -> List[Dict[str, Any]]:
     """
-    Get all resources for a specific project.
-
-    Args:
-        project_name: The name of the project to retrieve resources for
+    Get all resources for the current project.
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Call the API to get all resources for the project
         resources = api_instance.get_all_resources_by_stack_using_get(project_name, include_content=True)
 
@@ -56,16 +57,15 @@ def get_all_resources_by_project(project_name: str) -> List[Dict[str, Any]]:
 
 
 @mcp.tool()
-def get_resource_by_project(project_name: str, resource_type: str, resource_name: str) -> Dict[str, Any]:
+def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str, Any]:
     """
-        Get a specific resource by type and name for a project.
+        Get a specific resource by type and name for the current project.
 
         This returns the current configuration of the resource. The "content" field contains
         the resource's actual configuration that would be validated against the schema from
         get_spec_for_resource() when making updates.
 
         Args:
-            project_name: The name of the project to retrieve the resource from
             resource_type: The type of resource to retrieve (e.g., service, ingress, postgres, redis)
             resource_name: The name of the specific resource to retrieve
 
@@ -75,6 +75,12 @@ def get_resource_by_project(project_name: str, resource_type: str, resource_name
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Call the API directly with resource name, type, and project name
         resource = api_instance.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
 
@@ -96,9 +102,9 @@ def get_resource_by_project(project_name: str, resource_type: str, resource_name
 
 
 @mcp.tool()
-def get_spec_for_resource(project_name: str, resource_type: str, resource_name: str) -> Dict[str, Any]:
+def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, Any]:
     """
-        Get specification details for the module mapped to a specific resource in a project.
+        Get specification details for the module mapped to a specific resource in the current project.
 
         This returns the schema that defines valid fields, allowed values, and validation rules
         ONLY for the "spec" part of the resource JSON. A complete resource JSON has other fields 
@@ -114,7 +120,6 @@ def get_spec_for_resource(project_name: str, resource_type: str, resource_name: 
         call explain_ui_annotation() with the annotation name to understand how to handle them properly.
 
         Args:
-            project_name: The name of the project the resource belongs to
             resource_type: The type of resource (e.g., service, ingress, postgres, redis)
             resource_name: The name of the specific resource
 
@@ -123,8 +128,14 @@ def get_spec_for_resource(project_name: str, resource_type: str, resource_name: 
     """
     # First, get the resource details to extract intent, flavor, and version
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Get the specific resource
-        resource = get_resource_by_project(project_name, resource_type, resource_name)
+        resource = get_resource_by_project(resource_type, resource_name)
 
         # Extract intent (resource_type), flavor, and version from info
         if not resource.get("info"):
@@ -165,16 +176,15 @@ def get_spec_for_resource(project_name: str, resource_type: str, resource_name: 
 
 
 @mcp.tool()
-def update_resource(project_name: str, resource_type: str, resource_name: str, content: Dict[str, Any]) -> None:
+def update_resource(resource_type: str, resource_name: str, content: Dict[str, Any]) -> None:
     """
-    Update a specific resource in a project.
+    Update a specific resource in the current project.
 
     Before using this tool, it's recommended to first call get_spec_for_resource() to
     understand the valid fields and values for this resource type. The content provided
     must conform to the specification schema for the update to succeed.
 
     Args:
-        project_name: The name of the project containing the resource
         resource_type: The type of resource to update (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource to update
         content: The updated content for the resource as a dictionary. This must conform
@@ -184,8 +194,14 @@ def update_resource(project_name: str, resource_type: str, resource_name: str, c
         ValueError: If the resource doesn't exist, update fails, or content doesn't match the required schema
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # First, get the current resource to obtain metadata
-        current_resource = get_resource_by_project(project_name, resource_type, resource_name)
+        current_resource = get_resource_by_project(resource_type, resource_name)
 
         # Create a ResourceFileRequest instance with the updated content
         resource_request = ResourceFileRequest()
@@ -212,7 +228,7 @@ def update_resource(project_name: str, resource_type: str, resource_name: str, c
 
 
 @mcp.tool()
-def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dict[str, Dict[str, Any]]:
+def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, Any]]:
     """
     Get required inputs for a module before adding a resource.
     
@@ -233,13 +249,12 @@ def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dic
     resources, the resource cannot be added until those dependencies are created.
     
     Example workflow:
-    1. Call get_module_inputs('my-project', 'service', 'default')
+    1. Call get_module_inputs('service', 'default')
     2. If it returns an input 'database' that is not optional and has multiple compatible resources:
        - Present the options to the user: "I see you need to select a database input. Available options are: X, Y, Z. Which would you like to use?"
        - Use their selection when calling add_resource()
     
     Args:
-        project_name: The name of the project to add the resource to
         resource_type: The type of resource to create (e.g., service, ingress, postgres) - this is the same as 'intent'
         flavor: The flavor of the resource to create
         
@@ -247,6 +262,12 @@ def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dic
         A dictionary of input names to their details, including compatible resources
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Create an API instance
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
 
@@ -283,12 +304,12 @@ def get_module_inputs(project_name: str, resource_type: str, flavor: str) -> Dic
 
 
 @mcp.tool()
-def add_resource(project_name: str, resource_type: str, resource_name: str, flavor: str = None, version: str = None,
+def add_resource(resource_type: str, resource_name: str, flavor: str, version: str,
                  content: Dict[str, Any] = None, inputs: Dict[str, Dict[str, str]] = None) -> None:
     """
-    Add a new resource to a project.
+    Add a new resource to the current project.
 
-    This function creates a new resource in the specified project. It's critical to follow the
+    This function creates a new resource in the current project. It's critical to follow the
     complete resource creation workflow to ensure all required inputs are provided.
     
     IMPORTANT: Before calling this tool, you MUST call get_module_inputs() to check what inputs
@@ -297,14 +318,14 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
     Never select resources for inputs automatically, unless there is just one - always ask the user for their preference.
     
     Step-by-step resource creation flow:
-    1. Call list_available_resources(project_name) to see available resources
+    1. Call list_available_resources() to see available resources
     2. From the results, select a resource_type/intent (e.g., 'service', 'postgres') and note the flavor and version
-    3. Call get_module_inputs(project_name, resource_type, flavor) to check required inputs and compatible resources
+    3. Call get_module_inputs(resource_type, flavor) to check required inputs and compatible resources
        - For each required input with multiple compatible resources, ASK THE USER which one to use
        - Present the options clearly: "For the 'database' input, I see these compatible resources: X, Y, Z. Which would you like to use?"
        - If a required input has no compatible resources, you must create those dependencies first
-    4. Call get_spec_for_module(project_name, resource_type, flavor, version) to understand the schema
-    5. Call get_sample_for_module(project_name, resource_type, flavor, version) to get a sample template
+    4. Call get_spec_for_module(resource_type, flavor, version) to understand the schema
+    5. Call get_sample_for_module(resource_type, flavor, version) to get a sample template
     6. Customize the template from step 5 according to user requirements
     7. Call add_resource() with all the parameters including:
        - The customized content
@@ -323,7 +344,6 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
     }
 
     Args:
-        project_name: The name of the project to add the resource to
         resource_type: The type of resource to create (e.g., service, ingress, postgres, redis) - this is the same as 'intent'
         resource_name: The name for the new resource
         flavor: The flavor of the resource - must be one of the flavors available for the chosen resource_type
@@ -337,6 +357,12 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
         ValueError: If the resource already exists, creation fails, or required parameters are missing
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # If flavor is not provided, prompt the user
         if not flavor:
             raise ValueError(f"Flavor must be specified for creating a new resource of type '{resource_type}'. "
@@ -355,7 +381,7 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
         # Check if inputs should be validated
         if inputs is None:
             # Get the module inputs to check if there are any required inputs
-            module_inputs = get_module_inputs(project_name, resource_type, flavor)
+            module_inputs = get_module_inputs(resource_type, flavor)
             required_inputs = [input_name for input_name, input_data in module_inputs.items()
                                if not input_data.get("optional", False) and input_data.get("compatible_resources")]
 
@@ -363,7 +389,7 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
                 input_list = ", ".join(required_inputs)
                 raise ValueError(f"Inputs must be specified for creating a resource of type '{resource_type}'. "
                                  f"The following inputs are required: {input_list}. "
-                                 f"Call get_module_inputs('{project_name}', '{resource_type}', '{flavor}') "
+                                 f"Call get_module_inputs('{resource_type}', '{flavor}') "
                                  f"to see all required inputs and their compatible resources.")
 
         # Create a ResourceFileRequest instance with the resource details
@@ -420,14 +446,13 @@ def add_resource(project_name: str, resource_type: str, resource_name: str, flav
 
 
 @mcp.tool()
-def delete_resource(project_name: str, resource_type: str, resource_name: str) -> None:
+def delete_resource(resource_type: str, resource_name: str) -> None:
     """
-    Delete a specific resource from a project.
+    Delete a specific resource from the current project.
 
-    This function permanently removes a resource from the specified project.
+    This function permanently removes a resource from the current project.
     
     Args:
-        project_name: The name of the project containing the resource
         resource_type: The type of resource to delete (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource to delete
 
@@ -435,8 +460,14 @@ def delete_resource(project_name: str, resource_type: str, resource_name: str) -
         ValueError: If the resource doesn't exist or deletion fails
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # First, get the current resource to obtain metadata
-        current_resource = get_resource_by_project(project_name, resource_type, resource_name)
+        current_resource = get_resource_by_project(resource_type, resource_name)
 
         resource_request = ResourceFileRequest()
         resource_request.directory = current_resource.get("directory")
@@ -461,7 +492,7 @@ def delete_resource(project_name: str, resource_type: str, resource_name: str) -
 
 
 @mcp.tool()
-def get_spec_for_module(project_name: str, intent: str, flavor: str, version: str) -> Dict[str, Any]:
+def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any]:
     """
     Get specification details for a module based on intent, flavor, and version.
     
@@ -479,7 +510,6 @@ def get_spec_for_module(project_name: str, intent: str, flavor: str, version: st
     call explain_ui_annotation() with the annotation name to understand how to handle them properly.
     
     Args:
-        project_name: The name of the project to get the module specification for
         intent: The intent/resource type (e.g., service, ingress, postgres, redis)
         flavor: The flavor of the resource
         version: The version of the resource
@@ -488,6 +518,12 @@ def get_spec_for_module(project_name: str, intent: str, flavor: str, version: st
         A schema specification that describes valid fields and values for the "spec" section of this resource type
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Call the TF Module API to get the spec
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
         module_response = api_instance.get_module_for_ifv_and_stack_using_get(
@@ -511,7 +547,7 @@ def get_spec_for_module(project_name: str, intent: str, flavor: str, version: st
 
 
 @mcp.tool()
-def get_sample_for_module(project_name: str, intent: str, flavor: str, version: str) -> Dict[str, Any]:
+def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any]:
     """
     Get a sample JSON template for creating a new resource of a specific type.
     
@@ -524,7 +560,6 @@ def get_sample_for_module(project_name: str, intent: str, flavor: str, version: 
     a complete resource template with all necessary fields populated with sample values.
     
     Args:
-        project_name: The name of the project to get the sample for
         intent: The intent/resource type (e.g., service, ingress, postgres, redis)
         flavor: The flavor of the resource
         version: The version of the resource
@@ -533,6 +568,12 @@ def get_sample_for_module(project_name: str, intent: str, flavor: str, version: 
         A complete sample JSON configuration that can be used as a template for creating a new resource
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Call the TF Module API to get the module
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
         module_response = api_instance.get_module_for_ifv_and_stack_using_get(
@@ -556,26 +597,31 @@ def get_sample_for_module(project_name: str, intent: str, flavor: str, version: 
 
 
 @mcp.tool()
-def get_output_references(project_name: str, output_type: str) -> List[Dict[str, Any]]:
+def get_output_references(output_type: str) -> List[Dict[str, Any]]:
     """
-    Get a list of available output references from resources in a project based on the output type.
+    Get a list of available output references from resources in the current project based on the output type.
     
     This tool is used in conjunction with the x-ui-output-type annotation to allow users to select
     outputs from existing resources to reference in their resource configuration.
     
     Args:
-        project_name: The name of the project to retrieve output references from
         output_type: The type of output to search for (e.g., "iam_policy_arn", "database_connection_string")
         
     Returns:
         A list of output references with resource details and output information
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-        
+
         # Call the API to get output references
         references = api_instance.get_output_references_using_get(output_type, project_name)
-        
+
         # Format the response to make it easier to present to users
         formatted_references = []
         for ref in references:
@@ -588,11 +634,12 @@ def get_output_references(project_name: str, output_type: str) -> List[Dict[str,
                 "reference": f"${{{ref.resource_type}.{ref.resource_name}.out.{ref.output_name}}}"
             }
             formatted_references.append(formatted_ref)
-            
+
         return formatted_references
-        
+
     except Exception as e:
-        raise ValueError(f"Failed to get output references for project '{project_name}' and output type '{output_type}': {str(e)}")
+        raise ValueError(
+            f"Failed to get output references for project '{project_name}' and output type '{output_type}': {str(e)}")
 
 
 @mcp.tool()
@@ -671,9 +718,9 @@ Unknown UI annotation. You can ignore this annotation and proceed normally.
 
 
 @mcp.tool()
-def get_resource_output_tree(project_name: str, resource_type: str) -> Dict[str, Any]:
+def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
     """
-    Get the output tree for a specific resource type in a project.
+    Get the output tree for a specific resource type in the current project.
     
     This tool returns a hierarchical tree of all output fields available for the specified resource type.
     The output tree is used for referencing data from one resource in another resource using the
@@ -683,51 +730,58 @@ def get_resource_output_tree(project_name: str, resource_type: str) -> Dict[str,
     you would use: ${postgres.my-db.out.connection_string}
     
     Args:
-        project_name: The name of the project to retrieve the output tree for
         resource_type: The type of resource to get outputs for (e.g., service, ingress, postgres, redis)
         
     Returns:
         A hierarchical tree of available output properties for the specified resource type
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Create an API instance
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-        
+
         # Call the API to get autocomplete data
         autocomplete_data = api_instance.get_autocomplete_data_using_get(project_name)
-        
+
         # Check if outProperties exists and contains data for the specified resource type
         if not autocomplete_data.out_properties:
             raise ValueError(f"No output properties found for project '{project_name}'")
-        
+
         # Get the output tree for the specified resource type
         output_tree = autocomplete_data.out_properties.get(resource_type)
         if not output_tree:
-            raise ValueError(f"No output properties found for resource type '{resource_type}' in project '{project_name}'")
-        
+            raise ValueError(
+                f"No output properties found for resource type '{resource_type}' in project '{project_name}'")
+
         # Convert to dictionary for easier consumption
         if hasattr(output_tree, 'to_dict'):
             output_tree = output_tree.to_dict()
-        
+
         # Return the output tree
         return {
             "resource_type": resource_type,
             "output_tree": output_tree,
             "reference_format": f"${{resourceType.resourceName.out.x.y}} where resourceType='{resource_type}' and out.x.y is the path to the desired output"
         }
-        
+
     except Exception as e:
-        raise ValueError(f"Failed to get output tree for resource type '{resource_type}' in project '{project_name}': {str(e)}")
+        raise ValueError(
+            f"Failed to get output tree for resource type '{resource_type}' in project '{project_name}': {str(e)}")
 
 
 @mcp.tool()
-def list_available_resources(project_name: str) -> List[Dict[str, Any]]:
+def list_available_resources() -> List[Dict[str, Any]]:
     """
-    List all available resources that can be added to a project.
+    List all available resources that can be added to the current project.
 
     This is the first step in the resource creation workflow. This function returns all
     resource types (also called 'intents') and their available flavors that can be added
-    to the specified project.
+    to the current project.
 
     When adding a new resource with add_resource(), you'll need to select:
     1. A resource_type/intent (e.g., 'service', 'ingress', 'postgres', 'redis')
@@ -740,14 +794,17 @@ def list_available_resources(project_name: str) -> List[Dict[str, Any]]:
     4. Call get_sample_for_module() to get a template
     5. Call add_resource() with the customized content and required inputs
 
-    Args:
-        project_name: The name of the project to list available resources for
-
     Returns:
         A list of dictionaries with resource_type (same as intent), flavor, version,
         description, and display_name for each available resource
     """
     try:
+        # Get current project
+        current_project = ClientUtils.get_current_project()
+        if not current_project:
+            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        project_name = current_project.name
+
         # Create an API instance
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
 
@@ -799,11 +856,11 @@ def get_resource_management_guide() -> str:
         # Get the absolute path to the docs directory
         current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         guide_path = os.path.join(current_dir, 'docs', 'resource_management_guide.md')
-        
+
         # Read the guide from the file
         with open(guide_path, 'r') as file:
             guide = file.read()
-            
+
         return guide
     except Exception as e:
         # Fallback message in case the file can't be read
