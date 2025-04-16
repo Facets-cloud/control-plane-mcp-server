@@ -23,15 +23,34 @@ This MCP server connects to your Control Plane API and provides:
 
 ### Resource Management
 - **Tools**:
-  - `get_all_resources_by_project` - Get all resources for a specific project
-  - `get_resource_by_project` - Get a specific resource by type and name
-  - `get_spec_for_resource` - Get specification details for a specific resource
+  - `get_all_resources_by_project` - Get all resources for the current project
+  - `get_resource_by_project` - Get a specific resource by type and name (provides complete resource configuration)
+  - `get_spec_for_resource` - Get specification details (schema) for a specific resource
   - `update_resource` - Update a specific resource in a project
+  - `get_module_inputs` - Get required inputs for a module before adding a resource
   - `add_resource` - Add a new resource to a project
   - `delete_resource` - Delete a specific resource from a project
   - `get_spec_for_module` - Get specification details for a module
   - `get_sample_for_module` - Get a sample JSON template for creating a resource
   - `list_available_resources` - List all available resources that can be added
+  - `get_output_references` - Get a list of available output references from resources based on output type
+  - `explain_ui_annotation` - Get explanation and handling instructions for UI annotations
+  - `get_resource_output_tree` - Get the hierarchical output tree for a specific resource type
+  - `get_resource_management_guide` - Get comprehensive instructions for managing resources
+
+## Resource Management Workflow
+
+The resource management tools support a complete workflow for creating, updating, and configuring resources:
+
+1. **Exploration**: Use `list_available_resources()` to see what resource types and flavors are available
+2. **Dependencies**: Call `get_module_inputs()` to check what inputs are required for a resource
+3. **Understanding**: Call `get_spec_for_module()` and `get_sample_for_module()` to understand the schema and structure
+4. **Creation**: Use `add_resource()` with the required parameters to create the resource
+5. **Configuration**: Update settings with `update_resource()` and refer to `get_spec_for_resource()` for valid fields
+6. **Referencing**: Use `get_output_references()` and `get_resource_output_tree()` for cross-resource references
+7. **Special Fields**: Handle special field types with guidance from `explain_ui_annotation()`
+
+For comprehensive guidance, use `get_resource_management_guide()` which provides detailed instructions on the entire process.
 
 ## Installation
 
@@ -105,6 +124,7 @@ Once configured in Claude Desktop, you can:
 2. Select a project: "Use project 'my-project'"
 3. Work with variables: "Show me all variables in the current project" or "Create a new secret variable for API authentication"
 4. Manage resources: "List all resources in project X" or "Update the configuration for service Y"
+5. Create complex resources: "Help me add a new service resource that connects to my database"
 
 Claude will automatically use the appropriate tools and display the results.
 
