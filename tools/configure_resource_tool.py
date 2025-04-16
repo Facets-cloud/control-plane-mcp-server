@@ -671,6 +671,56 @@ Unknown UI annotation. You can ignore this annotation and proceed normally.
 
 
 @mcp.tool()
+def get_resource_output_tree(project_name: str, resource_type: str) -> Dict[str, Any]:
+    """
+    Get the output tree for a specific resource type in a project.
+    
+    This tool returns a hierarchical tree of all output fields available for the specified resource type.
+    The output tree is used for referencing data from one resource in another resource using the
+    format ${resourceType.resourceName.out.x.y}, where x.y is the path in the output tree.
+    
+    For example, to reference a database connection string from a postgres resource named 'my-db',
+    you would use: ${postgres.my-db.out.connection_string}
+    
+    Args:
+        project_name: The name of the project to retrieve the output tree for
+        resource_type: The type of resource to get outputs for (e.g., service, ingress, postgres, redis)
+        
+    Returns:
+        A hierarchical tree of available output properties for the specified resource type
+    """
+    try:
+        # Create an API instance
+        api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+        
+        # Call the API to get autocomplete data
+        autocomplete_data = api_instance.get_autocomplete_data_using_get(project_name)
+        
+        # Check if outProperties exists and contains data for the specified resource type
+        if not autocomplete_data.out_properties:
+            raise ValueError(f"No output properties found for project '{project_name}'")
+        
+        # Get the output tree for the specified resource type
+        output_tree = autocomplete_data.out_properties.get(resource_type)
+        if not output_tree:
+            raise ValueError(f"No output properties found for resource type '{resource_type}' in project '{project_name}'")
+        
+        # Convert to dictionary for easier consumption
+        if hasattr(output_tree, 'to_dict'):
+            output_tree = output_tree.to_dict()
+        
+        # Return the output tree
+        return {
+            "resource_type": resource_type,
+            "output_tree": output_tree,
+            "reference_format": f"${{resourceType.resourceName.out.x.y}} where resourceType='{resource_type}' and out.x.y is the path to the desired output"
+        }
+        
+    except Exception as e:
+        raise ValueError(f"Failed to get output tree for resource type '{resource_type}' in project '{project_name}': {str(e)}")
+
+
+@mcp.tool()
 def list_available_resources(project_name: str) -> List[Dict[str, Any]]:
     """
     List all available resources that can be added to a project.
