@@ -14,12 +14,13 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # Call the API to get all resources for the project
         resources = api_instance.get_all_resources_by_stack_using_get(project_name, include_content=True)
@@ -74,12 +75,13 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # Call the API directly with resource name, type, and project name
         resource = api_instance.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
@@ -127,12 +129,13 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
             A schema specification that describes valid fields and values for the "spec" section of this resource type
     """
     # First, get the resource details to extract intent, flavor, and version
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # Get the specific resource
         resource = get_resource_by_project(resource_type, resource_name)
@@ -193,12 +196,13 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
     Raises:
         ValueError: If the resource doesn't exist, update fails, or content doesn't match the required schema
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # First, get the current resource to obtain metadata
         current_resource = get_resource_by_project(resource_type, resource_name)
@@ -261,12 +265,13 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
     Returns:
         A dictionary of input names to their details, including compatible resources
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # Create an API instance
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
@@ -356,12 +361,13 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
     Raises:
         ValueError: If the resource already exists, creation fails, or required parameters are missing
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # If flavor is not provided, prompt the user
         if not flavor:
@@ -459,12 +465,13 @@ def delete_resource(resource_type: str, resource_name: str) -> None:
     Raises:
         ValueError: If the resource doesn't exist or deletion fails
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # First, get the current resource to obtain metadata
         current_resource = get_resource_by_project(resource_type, resource_name)
@@ -517,12 +524,13 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
     Returns:
         A schema specification that describes valid fields and values for the "spec" section of this resource type
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # Call the TF Module API to get the spec
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
@@ -567,12 +575,13 @@ def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, A
     Returns:
         A complete sample JSON configuration that can be used as a template for creating a new resource
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # Call the TF Module API to get the module
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
@@ -610,12 +619,13 @@ def get_output_references(output_type: str) -> List[Dict[str, Any]]:
     Returns:
         A list of output references with resource details and output information
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
@@ -735,12 +745,13 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
     Returns:
         A hierarchical tree of available output properties for the specified resource type
     """
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
+    
     try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
 
         # Create an API instance
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
@@ -798,13 +809,13 @@ def list_available_resources() -> List[Dict[str, Any]]:
         A list of dictionaries with resource_type (same as intent), flavor, version,
         description, and display_name for each available resource
     """
-    try:
-        # Get current project
-        current_project = ClientUtils.get_current_project()
-        if not current_project:
-            raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
-        project_name = current_project.name
+    # Get current project
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+    project_name = current_project.name
 
+    try:
         # Create an API instance
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
 
