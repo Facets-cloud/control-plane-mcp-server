@@ -179,9 +179,18 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
 
 
 @mcp.tool()
-def update_resource(resource_type: str, resource_name: str, content: Dict[str, Any]) -> None:
+def update_resource(resource_type: str, resource_name: str, content: Dict[str, Any], dry_run: bool = True) -> str:
     """
     Update a specific resource in the current project.
+    
+    IMPORTANT: This is a potentially irreversible operation that modifies resources.
+    Always run with `dry_run=True` first to preview changes before committing them.
+    
+    Steps for safe resource updates:
+    1. Always run with `dry_run=True` first to preview changes.
+    2. Review the differences between current and proposed configuration.
+    3. ASK THE USER EXPLICITLY if they want to proceed with these changes.
+    4. Only if user confirms, run again with `dry_run=False` to commit changes.
 
     Before using this tool, it's recommended to first call get_spec_for_resource() to
     understand the valid fields and values for this resource type. The content provided
@@ -192,6 +201,10 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         resource_name: The name of the specific resource to update
         content: The updated content for the resource as a dictionary. This must conform
                 to the schema returned by get_spec_for_resource().
+        dry_run: If True, only preview changes without making them. Default is True.
+
+    Returns:
+        Preview of changes (if dry_run=True) or confirmation of update (if dry_run=False)
 
     Raises:
         ValueError: If the resource doesn't exist, update fails, or content doesn't match the required schema
@@ -204,9 +217,10 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
     
     try:
 
-        # First, get the current resource to obtain metadata
+        # First, get the current resource to obtain metadata and current content
         current_resource = get_resource_by_project(resource_type, resource_name)
-
+        current_content = current_resource.get("content", {})
+        
         # Create a ResourceFileRequest instance with the updated content
         resource_request = ResourceFileRequest()
         resource_request.content = content
@@ -219,12 +233,45 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
         stack = api_stack.get_stack_using_get(project_name)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
-
-        # Create an API instance and update the resource
-        api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-        result = api_instance.update_resources_using_put(branch, [resource_request], project_name)
-
-        return result
+        
+        # If dry_run is True, show a preview of changes rather than applying them
+        if dry_run:
+            import json
+            import difflib
+            
+            # Format the current and new content for comparison
+            current_json = json.dumps(current_content, indent=2).splitlines()
+            new_json = json.dumps(content, indent=2).splitlines()
+            
+            # Generate a diff between current and new content
+            diff = difflib.unified_diff(
+                current_json, 
+                new_json,
+                fromfile=f"{resource_type}/{resource_name} (current)",
+                tofile=f"{resource_type}/{resource_name} (proposed)",
+                lineterm='',
+                n=3  # Context lines
+            )
+            
+            # Format the diff for readability
+            formatted_diff = '\n'.join(list(diff))
+            
+            # Create a structured response for the dry run
+            result = {
+                "type": "dry_run",
+                "resource_type": resource_type,
+                "resource_name": resource_name,
+                "diff": formatted_diff,
+                "instructions": "Review the proposed changes above. ➕ Added lines, ➖ Removed lines, and unchanged lines for context. ASK THE USER EXPLICITLY if they want to proceed with these changes. Only if the user confirms, run the update_resource function again with dry_run=False."
+            }
+            
+            return json.dumps(result, indent=2)
+        else:
+            # Create an API instance and update the resource
+            api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+            result = api_instance.update_resources_using_put(branch, [resource_request], project_name)
+            
+            return f"Successfully updated resource '{resource_name}' of type '{resource_type}'."
 
     except Exception as e:
         raise ValueError(
@@ -310,9 +357,19 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
 
 @mcp.tool()
 def add_resource(resource_type: str, resource_name: str, flavor: str, version: str,
-                 content: Dict[str, Any] = None, inputs: Dict[str, Dict[str, str]] = None) -> None:
+                 content: Dict[str, Any] = None, inputs: Dict[str, Dict[str, str]] = None,
+                 dry_run: bool = True) -> str:
     """
     Add a new resource to the current project.
+
+    IMPORTANT: This is a potentially irreversible operation that creates new resources.
+    Always run with `dry_run=True` first to preview the resource before creating it.
+    
+    Steps for safe resource creation:
+    1. Always run with `dry_run=True` first to preview the resource configuration.
+    2. Review the proposed resource configuration.
+    3. ASK THE USER EXPLICITLY if they want to proceed with creating this resource.
+    4. Only if user confirms, run again with `dry_run=False` to create the resource.
 
     This function creates a new resource in the current project. It's critical to follow the
     complete resource creation workflow to ensure all required inputs are provided.
@@ -357,6 +414,10 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
                 to the schema for the specified resource type and flavor.
         inputs: A dictionary mapping input names to selected resources. Each value should be a dictionary with
                'resource_name', 'resource_type', and 'output_name' keys.
+        dry_run: If True, only preview the resource without creating it. Default is True.
+
+    Returns:
+        Preview of resource (if dry_run=True) or confirmation of creation (if dry_run=False)
 
     Raises:
         ValueError: If the resource already exists, creation fails, or required parameters are missing
@@ -439,12 +500,42 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
         stack = api_stack.get_stack_using_get(project_name)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
-
-        # Create an API instance and create the resource
-        api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-        result = api_instance.create_resources_using_post(branch, [resource_request], project_name)
-
-        return result
+        
+        # If dry_run is True, show a preview of the resource rather than creating it
+        if dry_run:
+            import json
+            
+            # Format the content for preview
+            formatted_content = json.dumps(content, indent=2) if content else "No content provided"
+            
+            # Display information about inputs if they exist
+            inputs_info = ""
+            if inputs:
+                inputs_info = "\nConnections to other resources:\n"
+                for input_name, input_data in inputs.items():
+                    input_resource = f"{input_data.get('resource_type')}/{input_data.get('resource_name')}"
+                    output_name = input_data.get('output_name', 'default')
+                    inputs_info += f"  - {input_name}: Connected to {input_resource} (output: {output_name})\n"
+            
+            # Create a structured response for the dry run
+            result = {
+                "type": "dry_run",
+                "resource_type": resource_type,
+                "resource_name": resource_name,
+                "flavor": flavor,
+                "version": version,
+                "content_preview": formatted_content,
+                "inputs_preview": inputs_info,
+                "instructions": "THIS IS A IRREVERSIBLE CRITICAL OPERATION, CONFIRM WITH USER if they want to proceed with creating this resource OR ANY CHANGES ARE NEEDED. Only if the user confirms, run the add_resource function again with dry_run=False."
+            }
+            
+            return json.dumps(result, indent=2)
+        else:
+            # Create an API instance and create the resource
+            api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+            result = api_instance.create_resources_using_post(branch, [resource_request], project_name)
+            
+            return f"Successfully created resource '{resource_name}' of type '{resource_type}'."
 
     except Exception as e:
         raise ValueError(
@@ -452,15 +543,26 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
 
 
 @mcp.tool()
-def delete_resource(resource_type: str, resource_name: str) -> None:
+def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True) -> str:
     """
     Delete a specific resource from the current project.
 
-    This function permanently removes a resource from the current project.
+    IMPORTANT: This is an irreversible operation that permanently removes a resource.
+    Always run with `dry_run=True` first to confirm which resource will be deleted.
+    
+    Steps for safe resource deletion:
+    1. Always run with `dry_run=True` first to confirm the resource details.
+    2. Review the resource that will be deleted, including any potential dependencies.
+    3. ASK THE USER EXPLICITLY if they want to proceed with deleting this resource.
+    4. Only if user explicitly confirms, run again with `dry_run=False` to delete the resource.
     
     Args:
         resource_type: The type of resource to delete (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource to delete
+        dry_run: If True, only preview the deletion without actually deleting. Default is True.
+
+    Returns:
+        Preview of deletion (if dry_run=True) or confirmation of deletion (if dry_run=False)
 
     Raises:
         ValueError: If the resource doesn't exist or deletion fails
@@ -486,12 +588,39 @@ def delete_resource(resource_type: str, resource_name: str) -> None:
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
         stack = api_stack.get_stack_using_get(project_name)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
-
-        # Create an API instance and delete the resource
-        api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-        result = api_instance.delete_resources_using_delete(branch, [resource_request], project_name)
-
-        return result
+        
+        # If dry_run is True, show a preview of the deletion rather than deleting
+        if dry_run:
+            import json
+            
+            # Get more details about the resource for confirmation
+            content_preview = json.dumps(current_resource.get("content", {}), indent=2)[:500]  # Truncate for readability
+            if len(content_preview) >= 500:
+                content_preview += "\n...\n(content truncated for preview)"
+                
+            # Warn about potential dependencies
+            dependencies_warning = ("\nWARNING: Deleting this resource may affect other resources that depend on it. "
+                                  "Please check for dependencies before confirming deletion.")
+            
+            # Create a structured response for the dry run
+            result = {
+                "type": "dry_run",
+                "resource_type": resource_type,
+                "resource_name": resource_name,
+                "directory": current_resource.get("directory"),
+                "filename": current_resource.get("filename"),
+                "content_preview": content_preview,
+                "warning": dependencies_warning,
+                "instructions": "This will PERMANENTLY DELETE the resource shown above. ASK THE USER EXPLICITLY if they want to proceed with deleting this resource. Only if the user EXPLICITLY confirms, run the delete_resource function again with dry_run=False."
+            }
+            
+            return json.dumps(result, indent=2)
+        else:
+            # Create an API instance and delete the resource
+            api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+            result = api_instance.delete_resources_using_delete(branch, [resource_request], project_name)
+            
+            return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
     except Exception as e:
         raise ValueError(
