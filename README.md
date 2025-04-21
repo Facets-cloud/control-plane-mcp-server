@@ -56,7 +56,51 @@ For comprehensive guidance, use `get_resource_management_guide()` which provides
 
 ### Prerequisites
 - Python 3.12 or higher
+- uv package manager (install using `brew install uv`)
 - A running Control Plane API instance
+
+### Usage with Claude Desktop
+
+To use this MCP server with Claude Desktop, first install uv using `brew install uv`, then add the following configuration to your `claude_desktop_config.json` file (typically located at `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "ControlPlaneServer": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/path/to/control-plane-mcp-server",
+        "main.py"
+      ],
+      "env": {
+        "CONTROL_PLANE_URL": "https://your-control-plane-url",
+        "FACETS_TOKEN": "your-facets-token",
+        "FACETS_USERNAME": "your-facets-username"
+      }
+    }
+  }
+}
+```
+
+**Important Notes:**
+1. Replace `/path/to/control-plane-mcp-server` with the absolute path to the repository on your machine
+2. The `--directory` flag is critical - it sets the working directory for the script execution
+3. Update the environment variables with your Control Plane credentials
+4. After saving the configuration, restart Claude Desktop for the changes to take effect
+
+Using a simpler command like `uv run /path/to/control-plane-mcp-server/main.py` without the `--directory` flag will not work correctly, as the script needs to execute from its project directory to properly locate dependencies and modules.
+
+
+### Environment Variables
+
+The server requires these environment variables:
+
+- `CONTROL_PLANE_URL` - URL of your Control Plane API (required if not using profile)
+- `FACETS_USERNAME` - Username for authentication (required if not using profile)
+- `FACETS_TOKEN` - Token for authentication (required if not using profile)
+- `FACETS_PROFILE` - Optional profile name (if credentials are stored in ~/.facets/credentials)
 
 ### Development Setup
 
@@ -64,7 +108,7 @@ For development and testing:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/control-plane-mcp-server.git
+git clone https://github.com/Facets-cloud/control-plane-mcp-server.git
 cd control-plane-mcp-server
 
 # Set up a virtual environment and install dependencies with uv
@@ -77,44 +121,6 @@ uv pip install -r requirements.txt
 # Run the server
 uv run main.py
 ```
-
-## Environment Variables
-
-The server requires these environment variables:
-
-- `CONTROL_PLANE_URL` - URL of your Control Plane API (required)
-- `FACETS_USERNAME` - Username for authentication (required)
-- `FACETS_TOKEN` - Token for authentication (required)
-- `FACETS_PROFILE` - Optional profile name (if credentials are stored in ~/.facets/credentials)
-
-## Usage with Claude Desktop
-
-To use this MCP server with Claude Desktop, add the following configuration to your `claude_desktop_config.json` file (typically located at `~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-"ControlPlaneServer": {
-  "command": "uv",
-  "args": [
-    "run",
-    "--directory",
-    "/path/to/control-plane-mcp-server",
-    "main.py"
-  ],
-  "env": {
-    "CONTROL_PLANE_URL": "https://your-control-plane-url",
-    "FACETS_TOKEN": "your-facets-token",
-    "FACETS_USERNAME": "your-facets-username"
-  }
-}
-```
-
-**Important Notes:**
-1. Replace `/path/to/control-plane-mcp-server` with the absolute path to the repository on your machine
-2. The `--directory` flag is critical - it sets the working directory for the script execution
-3. Update the environment variables with your Control Plane credentials
-4. After saving the configuration, restart Claude Desktop for the changes to take effect
-
-Using a simpler command like `uv run /path/to/control-plane-mcp-server/main.py` without the `--directory` flag will not work correctly, as the script needs to execute from its project directory to properly locate dependencies and modules.
 
 ## Example Usage with Claude
 
