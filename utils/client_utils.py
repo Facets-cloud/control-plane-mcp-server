@@ -44,6 +44,7 @@ class ClientUtils:
     def initialize():
         """
         Initialize configuration from environment variables or a credentials file.
+        Ensures the control plane URL has https:// prefix and no trailing slash.
 
         Returns:
             tuple: containing cp_url, username, token, and profile.
@@ -70,6 +71,14 @@ class ClientUtils:
 
         if not (cp_url and username and token):
             raise ValueError("Control plane URL, username, and token are required.")
+
+        # Ensure cp_url has https:// prefix
+        if cp_url and not (cp_url.startswith("http://") or cp_url.startswith("https://")):
+            cp_url = f"https://{cp_url}"
+
+        # Remove trailing slash if present
+        if cp_url and cp_url.endswith("/"):
+            cp_url = cp_url.rstrip("/")
 
         # print(f"Running MCP server at: {cp_url} using profile {profile}")
         ClientUtils.set_client_config(cp_url, username, token)
