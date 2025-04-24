@@ -80,7 +80,6 @@ class ClientUtils:
         if cp_url and cp_url.endswith("/"):
             cp_url = cp_url.rstrip("/")
 
-        # print(f"Running MCP server at: {cp_url} using profile {profile}")
         ClientUtils.set_client_config(cp_url, username, token)
         return cp_url, username, token, profile
 

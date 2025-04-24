@@ -14,7 +14,6 @@ def _test_login() -> bool:
     try:
         api_instance = swagger_client.ApplicationControllerApi(ClientUtils.get_client())
         api_instance.me_using_get()
-        # print("Login test successful.")
         return True
     except Exception as e:
         print(f"Login test failed: {e}")
@@ -22,8 +21,6 @@ def _test_login() -> bool:
 
 
 if __name__ == "__main__":
-    print("Server is initializing...")
     mcp = ClientUtils.get_mcp_instance()
     if _test_login():
-        print("Login was successful.")
         mcp.run()
