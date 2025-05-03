@@ -1,7 +1,8 @@
 import os
 from typing import Any
 
-from swagger_client.models import Variables  # Add more as needed
+from swagger_client.models import Variables, AbstractCluster, FacetsResource, DeploymentRequest  # Add more as needed
+
 from pydantic import BaseModel, Field
 
 OUTPUT_DIR = "pydantic_generated"
@@ -57,4 +58,7 @@ def write_model_to_file(class_name: str, swagger_cls: Any):
 
 if __name__ == "__main__":
     write_model_to_file("VariablesModel", Variables)
+    write_model_to_file("AbstractClusterModel", AbstractCluster)
+    write_model_to_file("FacetsResourceModel", FacetsResource)
+    write_model_to_file("DeploymentRequestModel", DeploymentRequest)
     # Add more models here if needed

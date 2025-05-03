@@ -23,4 +23,4 @@ def _test_login() -> bool:
 if __name__ == "__main__":
     mcp = ClientUtils.get_mcp_instance()
     if _test_login():
-        mcp.run()
+        mcp.run(transport="stdio")
