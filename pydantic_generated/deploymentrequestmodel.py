@@ -2,6 +2,17 @@
 from pydantic import BaseModel, Field
 from typing import Any, Optional, List
 
+
+class TfVersion(BaseModel):
+    majorVersion: str
+    minorVersion: str
+    tfStream: str
+
+    class Config:
+        from_attributes = True
+        allow_population_by_alias = True
+        from_attributes = True
+
 class DeploymentRequestModel(BaseModel):
     allow_destroy: bool = Field(None, alias='allowDestroy')
     alpha: bool = None
@@ -18,10 +29,11 @@ class DeploymentRequestModel(BaseModel):
     release_comment: str = Field(None, alias='releaseComment')
     release_trace_id: str = Field(None, alias='releaseTraceId')
     release_type: str = Field(None, alias='releaseType')
-    tf_version: Any = Field(None, alias='tfVersion')
+    tf_version: TfVersion = Field(None, alias='tfVersion')
     with_refresh: bool = Field(None, alias='withRefresh')
 
     class Config:
         validate_by_name = True
         allow_population_by_alias = True
         from_attributes = True
+
