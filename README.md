@@ -38,6 +38,29 @@ This MCP server connects to your Control Plane API and provides:
   - `get_resource_output_tree` - Get the hierarchical output tree for a specific resource type
   - `get_resource_management_guide` - Get comprehensive instructions for managing resources
 
+### Environment Management
+- **Tools**:
+  - `get_all_clusters` - Retrieve a list of all clusters in the current project
+  - `use_cluster` - Set the current active cluster for operations
+  - `get_current_cluster_details` - Get detailed information about the current cluster
+  - `check_if_cluster_is_running` - Verify if the current cluster is in running state
+  - `get_deployments_of_current_cluster` - List all deployments for the current cluster
+  - `get_deployment_details` - Get detailed information about a specific deployment
+  - `get_deployment_logs_of_current_cluster` - Get logs for a specific deployment
+  - `get_active_deployments_of_current_cluster` - List all currently running deployments
+  - `get_active_deployment_logs_of_current_cluster` - Get logs from all running deployments
+  - `get_latest_deployment_of_current_cluster` - Get the most recent deployment information
+  - `launch_environment_of_current_cluster` - Initialize and start up a cluster
+  - `destroy_environment_of_current_cluster` - Remove all resources in a cluster
+  - `create_hotfix_plan_of_current_cluster` - Create a plan for targeted resource fixes
+  - `create_hotfix_of_current_cluster` - Apply targeted fixes to specific resources
+  - `create_full_release_plan_of_current_cluster` - Create a plan for updating all resources
+  - `create_full_release_of_current_cluster` - Update all resources with latest changes
+  - `create_custom_release_for_current_cluster` - Execute custom deployment steps
+  - `unlock_state_of_current_cluster` - Unlock terraform state if locked
+  - `scale_up_cluster_of_current_cluster` - Scale up a scaled-down cluster
+  - `scale_down_cluster_of_current_cluster` - Scale down a running cluster
+
 ## Resource Management Workflow
 
 The resource management tools support a complete workflow for creating, updating, and configuring resources:
@@ -51,6 +74,25 @@ The resource management tools support a complete workflow for creating, updating
 7. **Special Fields**: Handle special field types with guidance from `explain_ui_annotation()`
 
 For comprehensive guidance, use `get_resource_management_guide()` which provides detailed instructions on the entire process.
+
+## Environment Management Workflow
+
+The environment management tools support a complete workflow for managing clusters (environments) and deployments:
+
+1. **Discovery**: Use `get_all_clusters()` to see all available clusters in your project
+2. **Selection**: Call `use_cluster()` to set a specific cluster as active for all operations
+3. **Status Check**: Use `get_current_cluster_details()` and `check_if_cluster_is_running()` to verify the cluster state
+4. **Monitoring**: Track deployments with `get_deployments_of_current_cluster()` and `get_deployment_logs_of_current_cluster()`
+5. **Environment Lifecycle**:
+   - **Launch**: Start a new environment with `launch_environment_of_current_cluster()`
+   - **Update**: Create update plans with `create_full_release_plan_of_current_cluster()` and apply with `create_full_release_of_current_cluster()`
+   - **Hotfix**: Target specific resources with `create_hotfix_plan_of_current_cluster()` and apply with `create_hotfix_of_current_cluster()`
+   - **Scale**: Manage resource allocation with `scale_down_cluster_of_current_cluster()` and `scale_up_cluster_of_current_cluster()`
+   - **Recovery**: Fix locked states with `unlock_state_of_current_cluster()`
+   - **Custom Operations**: Perform advanced operations with `create_custom_release_for_current_cluster()`
+   - **Cleanup**: Remove environments with `destroy_environment_of_current_cluster()`
+
+Each operation requires specific checks and confirmations to ensure safe execution, and the tools provide extensive validation to prevent errors.
 
 ## Installation
 
@@ -131,6 +173,9 @@ Once configured in Claude Desktop, you can:
 3. Work with variables: "Show me all variables in the current project" or "Create a new secret variable for API authentication"
 4. Manage resources: "List all resources in project X" or "Update the configuration for service Y"
 5. Create complex resources: "Help me add a new service resource that connects to my database"
+6. Manage environments: "List all clusters in my project" or "Launch the dev-cluster environment"
+7. Monitor deployments: "Show me active deployments in my cluster" or "Get logs for the latest deployment"
+8. Perform operations: "Create a hotfix plan for the auth service" or "Scale down my staging cluster"
 
 Claude will automatically use the appropriate tools and display the results.
 
