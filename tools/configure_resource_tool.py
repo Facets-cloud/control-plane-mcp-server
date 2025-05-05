@@ -285,7 +285,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         else:
             # Create an API instance and update the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            result = api_instance.update_resources_using_put(branch, [resource_request], project_name)
+            api_instance.update_resources_using_put([resource_request], branch, project_name)
             
             # Check for errors after the update
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
@@ -576,7 +576,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         else:
             # Create an API instance and create the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            result = api_instance.create_resources_using_post(branch, [resource_request], project_name)
+            api_instance.create_resources_using_post([resource_request], branch, project_name)
             
             # Check for errors after the addition
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
@@ -688,7 +688,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
         else:
             # Create an API instance and delete the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            result = api_instance.delete_resources_using_delete(branch, [resource_request], project_name)
+            api_instance.delete_resources_using_delete([resource_request], branch,  project_name)
             
             return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
