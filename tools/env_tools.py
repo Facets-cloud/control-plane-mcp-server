@@ -13,19 +13,19 @@ from pydantic_generated.abstractclustermodel import AbstractClusterModel
 
 mcp = ClientUtils.get_mcp_instance()
 
-def _convert_swagger_cluster_to_pydantic(swagger_cluster) -> AbstractClusterModel:
+def _convert_swagger_environment_to_pydantic(swagger_environment) -> AbstractClusterModel:
     """
     Helper function to safely convert a swagger AbstractCluster to a Pydantic AbstractClusterModel.
     This handles None values properly to avoid validation errors.
     
     Args:
-        swagger_cluster: Swagger AbstractCluster instance
+        swagger_environment: Swagger AbstractCluster instance
         
     Returns:
         AbstractClusterModel: Properly converted Pydantic model
     """
     # Create a dictionary with default values for fields that could be None
-    cluster_data = {}
+    environment_data = {}
     
     # Get all fields from the model
     model_fields = AbstractClusterModel.model_fields
@@ -36,7 +36,7 @@ def _convert_swagger_cluster_to_pydantic(swagger_cluster) -> AbstractClusterMode
         swagger_field = field_info.alias or field_name
         
         # Get the value from swagger model
-        value = getattr(swagger_cluster, swagger_field, None)
+        value = getattr(swagger_environment, swagger_field, None)
         
         # Handle None values based on field type
         if value is None:
@@ -45,23 +45,23 @@ def _convert_swagger_cluster_to_pydantic(swagger_cluster) -> AbstractClusterMode
             
             # For string fields
             if annotation == str:
-                cluster_data[field_name] = ""
+                environment_data[field_name] = ""
             # For boolean fields
             elif annotation == bool:
-                cluster_data[field_name] = False
+                environment_data[field_name] = False
             # For integer fields
             elif annotation == int:
-                cluster_data[field_name] = 0
+                environment_data[field_name] = 0
             # For float fields
             elif annotation == float:
-                cluster_data[field_name] = 0.0
+                environment_data[field_name] = 0.0
             else:
                 # For other types, keep as None but it might cause validation issues
-                cluster_data[field_name] = value
+                environment_data[field_name] = value
         else:
-            cluster_data[field_name] = value
+            environment_data[field_name] = value
     
-    return AbstractClusterModel.model_validate(cluster_data)
+    return AbstractClusterModel.model_validate(environment_data)
 
 def _convert_pydantic_request_to_swagger(pydantic_request: DeploymentRequestModel) -> DeploymentRequest:
     """
@@ -109,17 +109,17 @@ def _convert_pydantic_request_to_swagger(pydantic_request: DeploymentRequestMode
     return req
 
 @mcp.tool()
-def get_all_clusters() -> List[AbstractClusterModel]:
+def get_all_environments() -> List[AbstractClusterModel]:
     """
-    Get all clusters in the current project. 🌐 
-    This function retrieves all clusters that are available in the currently selected project. 📋 
+    Get all environments in the current project. 🌐 
+    This function retrieves all environments that are available in the currently selected project. 📋 
     It provides a comprehensive list of all environments you can work with. ✨
     
     Inputs:
         None
         
     Returns:
-        List[str]: A list of cluster names in the current project.
+        List[str]: A list of environment names in the current project.
         
     Raises:
         ValueError: If no current project is set.
@@ -139,25 +139,25 @@ def get_all_clusters() -> List[AbstractClusterModel]:
     # Call the method on the instance
     environments = api_instance.get_clusters_using_get1(project.name)
     # Convert swagger models to Pydantic models
-    return [_convert_swagger_cluster_to_pydantic(env) for env in environments]
+    return [_convert_swagger_environment_to_pydantic(env) for env in environments]
 
 @mcp.tool()
-def use_cluster(cluster_name: str):
+def use_environment(environment_name: str):
     """
-    Set the current cluster in the utils configuration. 🔧 This allows you to work with a specific cluster environment. 🌐 
-    The cluster must exist in the current project. 📋
+    Set the current environment in the utils configuration. 🔧 This allows you to work with a specific environment. 🌐 
+    The environment must exist in the current project. 📋
 
     Args:
-        cluster_name (str): The name of the cluster to set as current.
+        environment_name (str): The name of the environment to set as current.
 
     Returns:
-        str: A message indicating that the cluster has been set.
+        str: A message indicating that the environment has been set.
     
     Raises:
-        ValueError: If no current project is set or if the cluster is not found in the project.
+        ValueError: If no current project is set or if the environment is not found in the project.
 
     example:
-        use_cluster("cluster-name")
+        use_environment("environment-name")
     """
     project = ClientUtils.get_current_project()
     if not project:
@@ -169,103 +169,103 @@ def use_cluster(cluster_name: str):
             )
         )
     
-    # Get all clusters directly from the API to avoid conversion issues
+    # Get all environments directly from the API to avoid conversion issues
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
     environments = api_instance.get_clusters_using_get1(project.name)
     
-    # Find the cluster by name
-    found_cluster = None
+    # Find the environment by name
+    found_environment = None
     for env in environments:
-        if env.name == cluster_name:
-            found_cluster = env
+        if env.name == environment_name:
+            found_environment = env
             break
     
-    if not found_cluster:
+    if not found_environment:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Cluster \"{cluster_name}\" not found in project \"{project.name}\""
+                message=f"Environment \"{environment_name}\" not found in project \"{project.name}\""
             )
         )
     
-    # Set the current cluster directly with the swagger model
-    ClientUtils.set_current_cluster(found_cluster)
-    return f"Current cluster set to {cluster_name}"
+    # Set the current environment directly with the swagger model
+    ClientUtils.set_current_cluster(found_environment)
+    return f"Current environment set to {environment_name}"
 
 @mcp.tool()
-def get_current_cluster_details() -> AbstractClusterModel:
+def get_current_environment_details() -> AbstractClusterModel:
     """
-    Get the current cluster details. 🔍 This requires the current project and cluster to be set. 🔄
-    The function refreshes cluster information from the server to ensure data is not stale. ✨
+    Get the current environment details. 🔍 This requires the current project and environment to be set. 🔄
+    The function refreshes environment information from the server to ensure data is not stale. ✨
 
     Returns:
-        AbstractClusterModel: The refreshed current cluster object with the latest information.
+        AbstractClusterModel: The refreshed current environment object with the latest information.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if not ClientUtils.is_current_cluster_and_project_set():
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or cluster is set. "
-                "Please set a project using project_tools.use_project() and a cluster using env_tools.use_cluster()."
+                message="No current project or environment is set. "
+                "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
             )
         )
     
     project = ClientUtils.get_current_project()
-    current_cluster = ClientUtils.get_current_cluster()
+    current_environment = ClientUtils.get_current_cluster()
     
     # Create an instance of the API class to get fresh data
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-    # Fetch the latest cluster details
+    # Fetch the latest environment details
     environments = api_instance.get_clusters_using_get1(project.name)
 
-    # get cluster metadata to fetch the running state of the cluster
+    # get environment metadata to fetch the running state of the environment
     cluster_metadata = api_instance.get_cluster_metadata_by_stack_using_get(project.name)
 
-    # Find the current cluster in the refreshed list
-    refreshed_cluster = None
+    # Find the current environment in the refreshed list
+    refreshed_environment = None
     for env in environments:
-        if env.id == current_cluster.id:
-            refreshed_cluster = env
-            # Get the cluster state from metadata
+        if env.id == current_environment.id:
+            refreshed_environment = env
+            # Get the environment state from metadata
             for metadata in cluster_metadata:
                 if metadata.cluster_id == env.id:
-                    refreshed_cluster.cluster_state = metadata.cluster_state
+                    refreshed_environment.cluster_state = metadata.cluster_state
                     break
-            # Update the current cluster in client utils
-            ClientUtils.set_current_cluster(refreshed_cluster)
+            # Update the current environment in client utils
+            ClientUtils.set_current_cluster(refreshed_environment)
             break
     
-    if not refreshed_cluster:
+    if not refreshed_environment:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Cluster with ID {current_cluster.id} no longer exists in project {project.name}"
+                message=f"Environment with ID {current_environment.id} no longer exists in project {project.name}"
             )
         )
     
-    return _convert_swagger_cluster_to_pydantic(refreshed_cluster)
+    return _convert_swagger_environment_to_pydantic(refreshed_environment)
 
 @mcp.tool()
-def get_deployments_of_current_cluster() -> ListDeploymentsWrapper:
+def get_releases_of_current_environment() -> ListDeploymentsWrapper:
     """
-    This will return all the deployments for the set current cluster in the set current project. 📊
-    This retrieves all deployments for the current cluster. 🚀
+    This will return all the releases for the set current environment in the set current project. 📊
+    This retrieves all releases for the current environment. 🚀
 
     Returns:
-        ListDeploymentsWrapper: A list of deployments for the current cluster.
+        ListDeploymentsWrapper: A list of releases for the current environment.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if not ClientUtils.is_current_cluster_and_project_set():
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or cluster is set. "
-                "Please set a project using project_tools.use_project() and a cluster using env_tools.use_cluster()."
+                message="No current project or environment is set. "
+                "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
             )
         )
     
@@ -275,16 +275,41 @@ def get_deployments_of_current_cluster() -> ListDeploymentsWrapper:
     return deployments
 
 @mcp.tool()
-def get_deployment_details(deployment_id: str) -> DeploymentLog:
+def get_release_details(release_id: str) -> DeploymentLog:
     """
-    Get the details of a specific deployment. in the set current cluster. for the set current project. 📊
-    This retrieves detailed information about a specific deployment. 🚀
+    Get the details of a specific release in the set current environment for the set current project. 📊
+    This retrieves detailed information about a specific release. 🚀
 
     Returns:
-        DeploymentLog: The details of the deployment.
+        DeploymentLog: The details of the release.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
+    """
+    if not ClientUtils.is_current_cluster_and_project_set():
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. "
+                "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
+        )
+    
+    api_instance = swagger_client.UiDeploymentControllerApi(ClientUtils.get_client())
+    release = api_instance.get_deployment_using_get(ClientUtils.get_current_cluster().id, release_id)
+    return release
+
+@mcp.tool()
+def get_release_logs_of_current_environment(release_id: str) -> List[DeploymentLog]:
+    """
+    Get the logs for a specific release in the set current environment for the set current project. 📋
+    This retrieves the logs for a specific release in the set current environment. 🚀
+
+    Returns:
+        List[DeploymentLog]: A list of release logs.
+    
+    Raises:
+        ValueError: If no current project or environment is set.
     """
     if not ClientUtils.is_current_cluster_and_project_set():
         raise McpError(
@@ -296,104 +321,79 @@ def get_deployment_details(deployment_id: str) -> DeploymentLog:
         )
     
     api_instance = swagger_client.UiDeploymentControllerApi(ClientUtils.get_client())
-    deployment = api_instance.get_deployment_using_get(ClientUtils.get_current_cluster().id, deployment_id)
-    return deployment
+    release_logs = api_instance.get_deployment_logs_using_get(ClientUtils.get_current_cluster().id, release_id)
+    return release_logs
 
 @mcp.tool()
-def get_deployment_logs_of_current_cluster(deployment_id: str) -> List[DeploymentLog]:
+def get_active_releases_of_current_environment() -> List[DeploymentLog]:
     """
-    Get the logs for a specific deployment in the set current cluster. for the set current project. 📋
-    This retrieves the logs for a specific deployment in the set current cluster. 🚀
+    Get the active releases for the set current environment for the set current project. 🚀
+    This retrieves all releases that are currently in the "RUNNING" state. 🟢
 
     Returns:
-        List[DeploymentLog]: A list of deployment logs.
+        List[DeploymentLog]: A list of active releases.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
+
     """
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # first lets check if the environment is in running state or not
+    environment = get_current_environment_details()
+    if environment.cluster_state != "RUNNING":
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or cluster is set. "
-                "Please set a project using project_tools.use_project() and a cluster using env_tools.use_cluster()."
-            )
-        )
-    
-    api_instance = swagger_client.UiDeploymentControllerApi(ClientUtils.get_client())
-    deployment_logs = api_instance.get_deployment_logs_using_get(ClientUtils.get_current_cluster().id, deployment_id)
-    return deployment_logs
-
-@mcp.tool()
-def get_active_deployments_of_current_cluster() -> List[DeploymentLog]:
-    """
-    Get the active deployments for the set current cluster. for the set current project. 🚀
-    This retrieves all deployments that are currently in the "RUNNING" state. 🟢
-
-    Returns:
-        List[DeploymentLog]: A list of active deployments.
-    
-    Raises:
-        ValueError: If no current project or cluster is set.
-
-    """
-    # first lets check if the cluster is in running state or not
-    cluster = get_current_cluster_details()
-    if cluster.cluster_state != "RUNNING":
-        raise McpError(
-            ErrorData(
-                code=INVALID_REQUEST,
-                message=f"Cluster \"{cluster.name}\" is not in running state"
+                message=f"Environment \"{environment.name}\" is not in running state"
             )
         )
 
-    deployments = get_deployments_of_current_cluster()
-    active_deployments = [deployment for deployment in deployments.deployments if deployment.status == "RUNNING"]
-    return active_deployments if len(active_deployments) > 0 else []
+    deployments = get_releases_of_current_environment()
+    active_releases = [release for release in deployments.deployments if release.status == "RUNNING"]
+    return active_releases if len(active_releases) > 0 else []
 
 @mcp.tool()
-def get_active_deployment_logs_of_current_cluster() -> List[DeploymentLog]:
+def get_active_release_logs_of_current_environment() -> List[DeploymentLog]:
     """
-    Get the active deployment logs for the set current cluster for the set current project. 📋 
-    This retrieves logs from all currently running deployments. 🚀
+    Get the active release logs for the set current environment for the set current project. 📋 
+    This retrieves logs from all currently running releases. 🚀
 
     Returns:    
-        List[DeploymentLog]: A list of active deployment logs.
+        List[DeploymentLog]: A list of active release logs.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
-    active_deployments = get_active_deployments_of_current_cluster()
+    active_releases = get_active_releases_of_current_environment()
     
-    # Check if we have any active deployments
-    if not active_deployments:
+    # Check if we have any active releases
+    if not active_releases:
         return []
         
-    active_deployment_logs = [get_deployment_logs_of_current_cluster(deployment.id) for deployment in active_deployments]
-    return active_deployment_logs
+    active_release_logs = [get_release_logs_of_current_environment(release.id) for release in active_releases]
+    return active_release_logs
 
 @mcp.tool()
-def get_latest_deployment_of_current_cluster() -> DeploymentLog:
+def get_latest_release_of_current_environment() -> DeploymentLog:
     """
-    Get the latest deployment for the set current cluster for the set current project. 📊 
-    This retrieves the most recent deployment regardless of its status. ⏱️
+    Get the latest release for the set current environment for the set current project. 📊 
+    This retrieves the most recent release regardless of its status. ⏱️
 
     Returns:
-        DeploymentLog: The latest deployment.
+        DeploymentLog: The latest release.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
-    deployments = get_deployments_of_current_cluster()
+    deployments = get_releases_of_current_environment()
     return deployments.deployments[-1]
 
-def create_deployment_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def create_release_for_current_environment(properties: DeploymentRequestModel) -> str:
     """
-    Create a deployment for the set current cluster for the set current project. 🚀 
-    This is the core function that handles all deployment types (launch, release, scale up/down, etc). 🛠️
+    Create a release for the set current environment for the set current project. 🚀 
+    This is the core function that handles all release types (launch, release, scale up/down, etc). 🛠️
 
     example:
-        create_deployment_of_current_cluster(DeploymentRequestModel(release_type="LAUNCH"))
+        create_release_for_current_environment(DeploymentRequestModel(release_type="LAUNCH"))
 
     JSON example:
         {
@@ -404,13 +404,13 @@ def create_deployment_of_current_cluster(properties: DeploymentRequestModel) -> 
         }
 
     Args:
-        properties (DeploymentRequestModel): The properties of the deployment.
+        properties (DeploymentRequestModel): The properties of the release.
 
     Returns:
-        str: The deployment id of the created deployment.
+        str: The release id of the created release.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     api_instance = swagger_client.UiDeploymentControllerApi(ClientUtils.get_client())
     
@@ -441,16 +441,16 @@ def create_deployment_of_current_cluster(properties: DeploymentRequestModel) -> 
     return deployment.id
 
 @mcp.tool()
-def launch_environment_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def launch_environment(properties: DeploymentRequestModel) -> str:
     """
-    Launch the set current cluster for the set current project. 🚀 
-    This will initialize and start up all resources in the cluster. ✨
-    This should only be called if the cluster is not already in the "RUNNING" state. 🟢 or "SCALED_DOWN" ⚠️
+    Launch the set current environment for the set current project. 🚀 
+    This will initialize and start up all resources in the environment. ✨
+    This should only be called if the environment is not already in the "RUNNING" state. 🟢 or "SCALED_DOWN" ⚠️
     Always ask the user to confirm this action before proceeding! ✅
     
 
     example:
-        launch_environment_of_current_cluster(DeploymentRequestModel(release_type="LAUNCH"))
+        launch_environment(DeploymentRequestModel(release_type="LAUNCH"))
 
     JSON example:
         {
@@ -467,7 +467,7 @@ def launch_environment_of_current_cluster(properties: DeploymentRequestModel) ->
         str: The deployment id of the created deployment.
     
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if properties.release_type != "LAUNCH":
         raise McpError(
@@ -477,20 +477,20 @@ def launch_environment_of_current_cluster(properties: DeploymentRequestModel) ->
             )
         )
     
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def destroy_environment_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def destroy_environment(properties: DeploymentRequestModel) -> str:
     """
-    Destroy the set current cluster for the set current project. 
-    💥 This will permanently remove all resources in the cluster. ⚠️ Use with caution! 🚨
-    Always before doing a destroy, make sure the cluster is not in the state "RUNNING" 🟢, and the cluster is not in the state "SCALED_DOWN" ⚠️
+    Destroy the set current environment for the set current project. 
+    💥 This will permanently remove all resources in the environment. ⚠️ Use with caution! 🚨
+    Always before doing a destroy, make sure the environment is not in the state "RUNNING" 🟢, and the environment is not in the state "SCALED_DOWN" ⚠️
     And this is an irreversible action, so always ask the user to confirm this action ✅.
     And always ask the user to provide the reason for the destroy. 🔍
     
 
     example:
-        destroy_environment_of_current_cluster(DeploymentRequestModel(release_type="DESTROY"))
+        destroy_environment(DeploymentRequestModel(release_type="DESTROY"))
 
     JSON example:
         {
@@ -516,18 +516,18 @@ def destroy_environment_of_current_cluster(properties: DeploymentRequestModel) -
             )
         )
     properties.force_release = True
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def create_hotfix_plan_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def create_selective_release_plan_for_environment(properties: DeploymentRequestModel) -> str:
     """
-    Create a hotfix plan for the set current cluster. for the set current project. 🔍
-    This should only be called if the cluster is in the state "RUNNING" 🟢, and the cluster is not in the state "SCALED_DOWN" ⚠️
-    Always before doing a hotfix, make sure you run this tool to run the plan and ask the user to review the plan 🔍 before running the hotfix.
+    Create a selective release plan for the set current environment for the set current project. 🔍
+    This should only be called if the environment is in the state "RUNNING" 🟢, and the environment is not in the state "SCALED_DOWN" ⚠️
+    Always before doing a selective release, make sure you run this tool to run the plan and ask the user to review the plan 🔍 before running the selective release.
     And this only should be an explicit action, Always ask the user to confirm this action ✅.
 
     example:
-        create_hotfix_plan_of_current_cluster(DeploymentRequestModel(release_type="HOTFIX_PLAN"))   
+        create_selective_release_plan_for_environment(DeploymentRequestModel(release_type="HOTFIX_PLAN"))   
 
     JSON example:
         {   
@@ -544,12 +544,12 @@ def create_hotfix_plan_of_current_cluster(properties: DeploymentRequestModel) ->
         }
         
     Args:
-        properties (DeploymentRequestModel): The properties of the deployment.
+        properties (DeploymentRequestModel): The properties of the release.
 
     Returns:
-        str: The deployment id of the created deployment.
+        str: The release id of the created release.
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if properties.release_type != "HOTFIX_PLAN":
         raise McpError(
@@ -562,24 +562,24 @@ def create_hotfix_plan_of_current_cluster(properties: DeploymentRequestModel) ->
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="Hotfix resources must be provided"
+                message="Selective release resources must be provided"
             )
-        )   
-    return create_deployment_of_current_cluster(properties)
+        )
+    return create_release_for_current_environment(properties)
 @mcp.tool()
-def create_hotfix_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def create_selective_release_for_environment(properties: DeploymentRequestModel) -> str:
     """
-    Create a hotfix deployment for the set current cluster. for the set current project. 🔧 
-    This allows for targeted fixes to specific resources without a full deployment. 🚀 
+    Create a selective release for the set current environment for the set current project. 🔧 
+    This allows for targeted fixes to specific resources without a full release. 🚀 
     Use this when you need to quickly update or fix a particular service. ⚡ 
-    Always before doing a hotfix, make sure you run `create_hotfix_plan_of_current_cluster()` tool to run the plan and ask the user to review the plan 🔍 before running the hotfix.
+    Always before doing a selective release, make sure you run `create_selective_release_plan_for_environment()` tool to run the plan and ask the user to review the plan 🔍 before running the selective release.
     And this only should be an explicit action, Always ask the user to confirm this action ✅.
 
     If the user doesn't want to run the plan, override by running this tool with the release type as HOTFIX. 🔄
-    Ask the user if they want to override the plan and run the hotfix. 🚦 This is a powerful operation that will update the specific resource! 💪
+    Ask the user if they want to override the plan and run the selective release. 🚦 This is a powerful operation that will update the specific resource! 💪
 
     example:
-        create_hotfix_of_current_cluster(DeploymentRequestModel(release_type="HOTFIX"))
+        create_selective_release_for_environment(DeploymentRequestModel(release_type="HOTFIX"))
 
     JSON example:
         {
@@ -596,12 +596,12 @@ def create_hotfix_of_current_cluster(properties: DeploymentRequestModel) -> str:
         }
 
     Args:
-        properties (DeploymentRequestModel): The properties of the deployment.
+        properties (DeploymentRequestModel): The properties of the release.
 
     Returns:
-        str: The deployment id of the created deployment.
+        str: The release id of the created release.
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if properties.release_type != "HOTFIX":
         raise McpError(
@@ -614,24 +614,24 @@ def create_hotfix_of_current_cluster(properties: DeploymentRequestModel) -> str:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="Hotfix resources must be provided"
+                message="Selective release resources must be provided"
             )
         )
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def create_full_release_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def create_full_release_for_environment(properties: DeploymentRequestModel) -> str:
     """
-    Create a full release deployment for the set current cluster for the set current project. 🚀 
-    This will deploy all resources in the cluster with the latest changes. ✨
-    Always before doing a full release, make sure you run `create_full_release_plan_of_current_cluster()` tool to run the plan and ask the user to review the plan 🔍 before running the full release.
+    Create a full release deployment for the set current environment for the set current project. 🚀 
+    This will deploy all resources in the environment with the latest changes. ✨
+    Always before doing a full release, make sure you run `create_full_release_plan_for_environment()` tool to run the plan and ask the user to review the plan 🔍 before running the full release.
     And this only should be an explicit action, Always ask the user to confirm this action ✅.
 
     If the user doesn't want to run the plan, override by running this tool with the release type as RELEASE. 🔄
-    Ask the user if they want to override the plan and run the full release. 🚦 This is a powerful operation that will update all cluster resources! 💪
+    Ask the user if they want to override the plan and run the full release. 🚦 This is a powerful operation that will update all environment resources! 💪
 
     example:
-        create_full_release_of_current_cluster(DeploymentRequestModel(release_type="RELEASE"))
+        create_full_release_for_environment(DeploymentRequestModel(release_type="RELEASE"))
 
     JSON example:
         {
@@ -647,7 +647,7 @@ def create_full_release_of_current_cluster(properties: DeploymentRequestModel) -
     Returns:
         str: The deployment id of the created deployment.
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if properties.release_type != "RELEASE":
         raise McpError(
@@ -656,19 +656,19 @@ def create_full_release_of_current_cluster(properties: DeploymentRequestModel) -
                 message="Release type must be RELEASE"
              )
         )
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def create_full_release_plan_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def create_full_release_plan_for_environment(properties: DeploymentRequestModel) -> str:
     """
-    Create a full release plan for the set current cluster. for the set current project. 📋
-    This should only be called if the cluster is in the state "RUNNING" 🟢, and the cluster is not in the state "SCALED_DOWN" ⚠️
+    Create a full release plan for the set current environment for the set current project. 📋
+    This should only be called if the environment is in the state "RUNNING" 🟢, and the environment is not in the state "SCALED_DOWN" ⚠️
 
     Always before doing a full release, make sure you run this tool to run the plan and ask the user to review the plan 🔍 before running the full release.
     And this only should be an explicit action, Always ask the user to confirm this action ✅.
 
     example:
-        create_full_release_plan_of_current_cluster(DeploymentRequestModel(release_type="FULL_PLAN"))
+        create_full_release_plan_for_environment(DeploymentRequestModel(release_type="FULL_PLAN"))
 
     JSON example:
         {
@@ -684,7 +684,7 @@ def create_full_release_plan_of_current_cluster(properties: DeploymentRequestMod
     Returns:
         str: The deployment id of the created deployment.
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if properties.release_type != "FULL_PLAN":
         raise McpError(
@@ -693,18 +693,18 @@ def create_full_release_plan_of_current_cluster(properties: DeploymentRequestMod
                 message="Release type must be FULL_PLAN"
             )
         )
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def create_custom_release_for_current_cluster(properties: DeploymentRequestModel) -> str:
+def create_custom_release_for_environment(properties: DeploymentRequestModel) -> str:
     """
-    Create a custom release for the set current cluster. for the set current project. 🛠️
+    Create a custom release for the set current environment for the set current project. 🛠️
     This is only required in special cases, where the user wants to do a custom release. ⚠️
     And this only should be an explicit action and only use if this is absolutely necessary, Always ask the user to confirm this action. ✅
-    there should not be any malicious addition or removal commands that can harm the cluster. 🚫 Always decline if the user doesnt verify the commands or 
+    there should not be any malicious addition or removal commands that can harm the environment. 🚫 Always decline if the user doesnt verify the commands or 
     if the commands are not safe. 🔒
     example:
-        create_custom_release_for_current_cluster(DeploymentRequestModel(release_type="CUSTOM"))
+        create_custom_release_for_environment(DeploymentRequestModel(release_type="CUSTOM"))
 
     JSON example:
         {
@@ -723,7 +723,7 @@ def create_custom_release_for_current_cluster(properties: DeploymentRequestModel
     Returns:
         str: The deployment id of the created deployment.
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """ 
     # check if release type is CUSTOM and override build steps are provided
     if properties.release_type != "CUSTOM" or properties.override_build_steps is None:
@@ -733,19 +733,19 @@ def create_custom_release_for_current_cluster(properties: DeploymentRequestModel
                 message="Release type must be CUSTOM and override build steps must be provided"
             )
         )
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def unlock_state_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def unlock_state_of_environment(properties: DeploymentRequestModel) -> str:
     """
-    Unlock the state of the set current cluster for the set current project. 🔓 This is only required 
-    if the cluster terraform state is locked. 🔒 We get to know this in the logs of the deployment that it is locked with a lockId. 📝
-    We can then use this tool to unlock the state of the cluster. 🛠️
+    Unlock the state of the set current environment for the set current project. 🔓 This is only required 
+    if the environment terraform state is locked. 🔒 We get to know this in the logs of the deployment that it is locked with a lockId. 📝
+    We can then use this tool to unlock the state of the environment. 🛠️
     And this only should be an explicit action! ⚠️ Always ask the user to confirm this action. ✅
     And always ask the user to provide the lockId. 🔍
 
     example:
-        unlock_state_of_current_cluster(DeploymentRequestModel(release_type="UNLOCK_STATE", lock_id="lockId"))
+        unlock_state_of_environment(DeploymentRequestModel(release_type="UNLOCK_STATE", lock_id="lockId"))
 
     JSON example:
         {
@@ -766,17 +766,17 @@ def unlock_state_of_current_cluster(properties: DeploymentRequestModel) -> str:
                 message="Release type must be UNLOCK_STATE and lockId must be provided"
             )
         )
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def scale_up_cluster_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def scale_up_environment(properties: DeploymentRequestModel) -> str:
     """
-    Scale up the set current cluster for the set current project. 🚀
-    This should only be called if the cluster is in the state "SCALED_DOWN" ⬇️
+    Scale up the set current environment for the set current project. 🚀
+    This should only be called if the environment is in the state "SCALED_DOWN" ⬇️
     And this only should be an explicit action! ⚠️ Always ask the user to confirm this action. ✅
 
     example:
-        scale_up_cluster_of_current_cluster(DeploymentRequestModel(release_type="SCALE_UP"))
+        scale_up_environment(DeploymentRequestModel(release_type="SCALE_UP"))
 
     JSON example:
         {
@@ -789,7 +789,7 @@ def scale_up_cluster_of_current_cluster(properties: DeploymentRequestModel) -> s
     Returns:
         str: The deployment id of the created deployment.
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if properties.release_type != "SCALE_UP":
         raise McpError(
@@ -798,17 +798,17 @@ def scale_up_cluster_of_current_cluster(properties: DeploymentRequestModel) -> s
                 message="Release type must be SCALE_UP"
             )
         )   
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool() 
-def scale_down_cluster_of_current_cluster(properties: DeploymentRequestModel) -> str:
+def scale_down_environment(properties: DeploymentRequestModel) -> str:
     """
-    Scale down the set current cluster for the set current project. ⬇️
-    This should only be called if the cluster is in the state "RUNNING" 🟢 and the cluster is not in the state "SCALED_DOWN" 🔽
+    Scale down the set current environment for the set current project. ⬇️
+    This should only be called if the environment is in the state "RUNNING" 🟢 and the environment is not in the state "SCALED_DOWN" 🔽
     And this only should be an explicit action! ⚠️ Always ask the user to confirm this action. ✅
 
     example:
-        scale_down_cluster_of_current_cluster(DeploymentRequestModel(release_type="SCALE_DOWN"))
+        scale_down_environment(DeploymentRequestModel(release_type="SCALE_DOWN"))
 
     JSON example:
         {
@@ -821,7 +821,7 @@ def scale_down_cluster_of_current_cluster(properties: DeploymentRequestModel) ->
     Returns:
         str: The deployment id of the created deployment.
     Raises:
-        ValueError: If no current project or cluster is set.
+        ValueError: If no current project or environment is set.
     """
     if properties.release_type != "SCALE_DOWN":
         raise McpError(
@@ -830,16 +830,16 @@ def scale_down_cluster_of_current_cluster(properties: DeploymentRequestModel) ->
                 message="Release type must be SCALE_DOWN"
             )
         )
-    return create_deployment_of_current_cluster(properties)
+    return create_release_for_current_environment(properties)
 
 @mcp.tool()
-def check_if_cluster_is_running() -> bool:
+def check_if_environment_is_running() -> bool:
     """
-    Check if the set current cluster is running for the set current project. 🔍
-    This tool helps verify if the cluster is in the "RUNNING" state 🟢 before performing operations that require an active cluster.
+    Check if the set current environment is running for the set current project. 🔍
+    This tool helps verify if the environment is in the "RUNNING" state 🟢 before performing operations that require an active environment.
 
     Returns:
-        bool: True if the cluster is running, False otherwise. 
+        bool: True if the environment is running, False otherwise. 
     """
-    cluster = get_current_cluster_details()
-    return cluster.cluster_state == "RUNNING"
+    environment = get_current_environment_details()
+    return environment.cluster_state == "RUNNING"

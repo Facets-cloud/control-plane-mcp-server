@@ -13,7 +13,7 @@ class ClientUtils:
     username = None
     token = None
     _current_project: Stack = None  # Use a private variable for the current project
-    _current_cluster: AbstractCluster = None
+    _current_environment: AbstractCluster = None
     mcp = None
     initialized = False
 
@@ -96,14 +96,14 @@ class ClientUtils:
         ClientUtils._current_project = project
 
     @staticmethod
-    def set_current_cluster(cluster: AbstractCluster):
+    def set_current_cluster(environment: AbstractCluster):
         """
-        Set the current cluster in the utils configuration.
+        Set the current environment in the utils configuration.
 
         Args:
-            cluster (AbstractCluster): The complete cluster object to set as current.
+            environment (AbstractCluster): The complete environment object to set as current.
         """
-        ClientUtils._current_cluster = cluster
+        ClientUtils._current_environment = environment
 
     @staticmethod
     def get_current_project() -> Stack:
@@ -118,22 +118,22 @@ class ClientUtils:
     @staticmethod
     def get_current_cluster() -> AbstractCluster:
         """
-        Get the current cluster object.
+        Get the current environment object.
 
         Returns:
-            AbstractCluster: The current cluster object.
+            AbstractCluster: The current environment object.
         """
-        return ClientUtils._current_cluster
+        return ClientUtils._current_environment
 
     @staticmethod
     def is_current_cluster_and_project_set() -> bool:
         """
-        This will return true if the current cluster is set and current project is set. 
+        This will return true if the current environment is set and current project is set. 
 
         Returns:
-            bool: True if the current cluster is set and current project is set.
+            bool: True if the current environment is set and current project is set.
         """
-        return ClientUtils._current_cluster is not None and ClientUtils._current_project is not None
+        return ClientUtils._current_environment is not None and ClientUtils._current_project is not None
     
     @staticmethod
     def pydantic_instance_to_swagger_instance(pydantic_instance, swagger_class):

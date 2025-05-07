@@ -40,26 +40,26 @@ This MCP server connects to your Control Plane API and provides:
 
 ### Environment Management
 - **Tools**:
-  - `get_all_clusters` - Retrieve a list of all clusters in the current project
-  - `use_cluster` - Set the current active cluster for operations
-  - `get_current_cluster_details` - Get detailed information about the current cluster
-  - `check_if_cluster_is_running` - Verify if the current cluster is in running state
-  - `get_deployments_of_current_cluster` - List all deployments for the current cluster
-  - `get_deployment_details` - Get detailed information about a specific deployment
-  - `get_deployment_logs_of_current_cluster` - Get logs for a specific deployment
-  - `get_active_deployments_of_current_cluster` - List all currently running deployments
-  - `get_active_deployment_logs_of_current_cluster` - Get logs from all running deployments
-  - `get_latest_deployment_of_current_cluster` - Get the most recent deployment information
-  - `launch_environment_of_current_cluster` - Initialize and start up a cluster
-  - `destroy_environment_of_current_cluster` - Remove all resources in a cluster
-  - `create_hotfix_plan_of_current_cluster` - Create a plan for targeted resource fixes
-  - `create_hotfix_of_current_cluster` - Apply targeted fixes to specific resources
-  - `create_full_release_plan_of_current_cluster` - Create a plan for updating all resources
-  - `create_full_release_of_current_cluster` - Update all resources with latest changes
-  - `create_custom_release_for_current_cluster` - Execute custom deployment steps
-  - `unlock_state_of_current_cluster` - Unlock terraform state if locked
-  - `scale_up_cluster_of_current_cluster` - Scale up a scaled-down cluster
-  - `scale_down_cluster_of_current_cluster` - Scale down a running cluster
+  - `get_all_environments` - Retrieve a list of all environments in the current project
+  - `use_environment` - Set the current active environment for operations
+  - `get_current_environment_details` - Get detailed information about the current environment
+  - `check_if_environment_is_running` - Verify if the current environment is in running state
+  - `get_releases_of_current_environment` - List all releases for the current environment
+  - `get_release_details` - Get detailed information about a specific release
+  - `get_release_logs_of_current_environment` - Get logs for a specific release
+  - `get_active_releases_of_current_environment` - List all currently running releases
+  - `get_active_release_logs_of_current_environment` - Get logs from all running releases
+  - `get_latest_release_of_current_environment` - Get the most recent release information
+  - `launch_environment` - Initialize and start up an environment
+  - `destroy_environment` - Remove all resources in an environment
+  - `create_selective_release_plan_for_environment` - Create a plan for targeted resource fixes
+  - `create_selective_release_for_environment` - Apply targeted fixes to specific resources
+  - `create_full_release_plan_for_environment` - Create a plan for updating all resources
+  - `create_full_release_for_environment` - Update all resources with latest changes
+  - `create_custom_release_for_environment` - Execute custom deployment steps
+  - `unlock_state_of_environment` - Unlock terraform state if locked
+  - `scale_up_environment` - Scale up a scaled-down environment
+  - `scale_down_environment` - Scale down a running environment
 
 ## Resource Management Workflow
 
@@ -79,18 +79,18 @@ For comprehensive guidance, use `get_resource_management_guide()` which provides
 
 The environment management tools support a complete workflow for managing clusters (environments) and deployments:
 
-1. **Discovery**: Use `get_all_clusters()` to see all available clusters in your project
-2. **Selection**: Call `use_cluster()` to set a specific cluster as active for all operations
-3. **Status Check**: Use `get_current_cluster_details()` and `check_if_cluster_is_running()` to verify the cluster state
-4. **Monitoring**: Track deployments with `get_deployments_of_current_cluster()` and `get_deployment_logs_of_current_cluster()`
+1. **Discovery**: Use `get_all_environments()` to see all available environments in your project
+2. **Selection**: Call `use_environment()` to set a specific environment as active for all operations
+3. **Status Check**: Use `get_current_environment_details()` and `check_if_environment_is_running()` to verify the environment state
+4. **Monitoring**: Track releases with `get_releases_of_current_environment()` and `get_release_logs_of_current_environment()`
 5. **Environment Lifecycle**:
-   - **Launch**: Start a new environment with `launch_environment_of_current_cluster()`
-   - **Update**: Create update plans with `create_full_release_plan_of_current_cluster()` and apply with `create_full_release_of_current_cluster()`
-   - **Hotfix**: Target specific resources with `create_hotfix_plan_of_current_cluster()` and apply with `create_hotfix_of_current_cluster()`
-   - **Scale**: Manage resource allocation with `scale_down_cluster_of_current_cluster()` and `scale_up_cluster_of_current_cluster()`
-   - **Recovery**: Fix locked states with `unlock_state_of_current_cluster()`
-   - **Custom Operations**: Perform advanced operations with `create_custom_release_for_current_cluster()`
-   - **Cleanup**: Remove environments with `destroy_environment_of_current_cluster()`
+   - **Launch**: Start a new environment with `launch_environment()`
+   - **Update**: Create update plans with `create_full_release_plan_for_environment()` and apply with `create_full_release_for_environment()`
+   - **Selective Updates**: Target specific resources with `create_selective_release_plan_for_environment()` and apply with `create_selective_release_for_environment()`
+   - **Scale**: Manage resource allocation with `scale_down_environment()` and `scale_up_environment()`
+   - **Recovery**: Fix locked states with `unlock_state_of_environment()`
+   - **Custom Operations**: Perform advanced operations with `create_custom_release_for_environment()`
+   - **Cleanup**: Remove environments with `destroy_environment()`
 
 Each operation requires specific checks and confirmations to ensure safe execution, and the tools provide extensive validation to prevent errors.
 
@@ -174,8 +174,8 @@ Once configured in Claude Desktop, you can:
 4. Manage resources: "List all resources in project X" or "Update the configuration for service Y"
 5. Create complex resources: "Help me add a new service resource that connects to my database"
 6. Manage environments: "List all clusters in my project" or "Launch the dev-cluster environment"
-7. Monitor deployments: "Show me active deployments in my cluster" or "Get logs for the latest deployment"
-8. Perform operations: "Create a hotfix plan for the auth service" or "Scale down my staging cluster"
+7. Monitor releases: "Show me active releases in my environment" or "Get logs for the latest release"
+8. Perform operations: "Create a selective release plan for the auth service" or "Scale down my staging environment"
 
 Claude will automatically use the appropriate tools and display the results.
 
