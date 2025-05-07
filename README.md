@@ -38,6 +38,29 @@ This MCP server connects to your Control Plane API and provides:
   - `get_resource_output_tree` - Get the hierarchical output tree for a specific resource type
   - `get_resource_management_guide` - Get comprehensive instructions for managing resources
 
+### Environment Management
+- **Tools**:
+  - `get_all_environments` - Retrieve a list of all environments in the current project
+  - `use_environment` - Set the current active environment for operations
+  - `get_current_environment_details` - Get detailed information about the current environment
+  - `check_if_environment_is_running` - Verify if the current environment is in running state
+  - `get_releases_of_current_environment` - List all releases for the current environment
+  - `get_release_details` - Get detailed information about a specific release
+  - `get_release_logs_of_current_environment` - Get logs for a specific release
+  - `get_active_releases_of_current_environment` - List all currently running releases
+  - `get_active_release_logs_of_current_environment` - Get logs from all running releases
+  - `get_latest_release_of_current_environment` - Get the most recent release information
+  - `launch_environment` - Initialize and start up an environment
+  - `destroy_environment` - Remove all resources in an environment
+  - `create_selective_release_plan_for_environment` - Create a plan for targeted resource fixes
+  - `create_selective_release_for_environment` - Apply targeted fixes to specific resources
+  - `create_full_release_plan_for_environment` - Create a plan for updating all resources
+  - `create_full_release_for_environment` - Update all resources with latest changes
+  - `create_custom_release_for_environment` - Execute custom deployment steps
+  - `unlock_state_of_environment` - Unlock terraform state if locked
+  - `scale_up_environment` - Scale up a scaled-down environment
+  - `scale_down_environment` - Scale down a running environment
+
 ## Resource Management Workflow
 
 The resource management tools support a complete workflow for creating, updating, and configuring resources:
@@ -51,6 +74,25 @@ The resource management tools support a complete workflow for creating, updating
 7. **Special Fields**: Handle special field types with guidance from `explain_ui_annotation()`
 
 For comprehensive guidance, use `get_resource_management_guide()` which provides detailed instructions on the entire process.
+
+## Environment Management Workflow
+
+The environment management tools support a complete workflow for managing clusters (environments) and deployments:
+
+1. **Discovery**: Use `get_all_environments()` to see all available environments in your project
+2. **Selection**: Call `use_environment()` to set a specific environment as active for all operations
+3. **Status Check**: Use `get_current_environment_details()` and `check_if_environment_is_running()` to verify the environment state
+4. **Monitoring**: Track releases with `get_releases_of_current_environment()` and `get_release_logs_of_current_environment()`
+5. **Environment Lifecycle**:
+   - **Launch**: Start a new environment with `launch_environment()`
+   - **Update**: Create update plans with `create_full_release_plan_for_environment()` and apply with `create_full_release_for_environment()`
+   - **Selective Updates**: Target specific resources with `create_selective_release_plan_for_environment()` and apply with `create_selective_release_for_environment()`
+   - **Scale**: Manage resource allocation with `scale_down_environment()` and `scale_up_environment()`
+   - **Recovery**: Fix locked states with `unlock_state_of_environment()`
+   - **Custom Operations**: Perform advanced operations with `create_custom_release_for_environment()`
+   - **Cleanup**: Remove environments with `destroy_environment()`
+
+Each operation requires specific checks and confirmations to ensure safe execution, and the tools provide extensive validation to prevent errors.
 
 ## Installation
 
@@ -131,6 +173,9 @@ Once configured in Claude Desktop, you can:
 3. Work with variables: "Show me all variables in the current project" or "Create a new secret variable for API authentication"
 4. Manage resources: "List all resources in project X" or "Update the configuration for service Y"
 5. Create complex resources: "Help me add a new service resource that connects to my database"
+6. Manage environments: "List all clusters in my project" or "Launch the dev-cluster environment"
+7. Monitor releases: "Show me active releases in my environment" or "Get logs for the latest release"
+8. Perform operations: "Create a selective release plan for the auth service" or "Scale down my staging environment"
 
 Claude will automatically use the appropriate tools and display the results.
 

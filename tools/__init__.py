@@ -6,4 +6,5 @@ from tools import configure_resource_tool
 __all__ = [
     'project_tools',
     'configure_resource_tool',
+    'env_tools'
 ]

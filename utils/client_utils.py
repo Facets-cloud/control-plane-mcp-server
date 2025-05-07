@@ -1,6 +1,7 @@
 import swagger_client
 from mcp.server.fastmcp import FastMCP
 from swagger_client.models.stack import Stack
+from swagger_client.models.abstract_cluster import AbstractCluster
 import os
 import configparser
 from pydantic import BaseModel, Field, create_model
@@ -12,6 +13,7 @@ class ClientUtils:
     username = None
     token = None
     _current_project: Stack = None  # Use a private variable for the current project
+    _current_environment: AbstractCluster = None
     mcp = None
     initialized = False
 
@@ -94,6 +96,16 @@ class ClientUtils:
         ClientUtils._current_project = project
 
     @staticmethod
+    def set_current_cluster(environment: AbstractCluster):
+        """
+        Set the current environment in the utils configuration.
+
+        Args:
+            environment (AbstractCluster): The complete environment object to set as current.
+        """
+        ClientUtils._current_environment = environment
+
+    @staticmethod
     def get_current_project() -> Stack:
         """
         Get the current project object.
@@ -103,6 +115,26 @@ class ClientUtils:
         """
         return ClientUtils._current_project
 
+    @staticmethod
+    def get_current_cluster() -> AbstractCluster:
+        """
+        Get the current environment object.
+
+        Returns:
+            AbstractCluster: The current environment object.
+        """
+        return ClientUtils._current_environment
+
+    @staticmethod
+    def is_current_cluster_and_project_set() -> bool:
+        """
+        This will return true if the current environment is set and current project is set. 
+
+        Returns:
+            bool: True if the current environment is set and current project is set.
+        """
+        return ClientUtils._current_environment is not None and ClientUtils._current_project is not None
+    
     @staticmethod
     def pydantic_instance_to_swagger_instance(pydantic_instance, swagger_class):
         swagger_kwargs = {}
