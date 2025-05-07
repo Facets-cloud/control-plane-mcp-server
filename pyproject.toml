@@ -7,6 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "mcp[cli]>=1.6.0",
     "httpx>=0.25.0",
-    "swagger_client @ git+https://github.com/Facets-cloud/control-plane-python-sdk.git",
+    "swagger_client @ git+https://github.com/Facets-cloud/control-plane-python-sdk.git@2b5c933c5b0725a9fceb4c6183d15040b93731a7",
     "pydantic~=2.11.2",
 ]

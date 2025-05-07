@@ -95,6 +95,22 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
             "content": json.loads(resource.content) if resource.content else None,
             "info": resource.info.to_dict() if resource.info else None  # Add the info object as a separate field
         }
+        
+        # Add errors if any exist
+        if hasattr(resource, 'errors') and resource.errors:
+            errors = []
+            for error in resource.errors:
+                error_info = {
+                    "message": error.message,
+                    "category": error.category,
+                    "severity": error.severity if hasattr(error, 'severity') else None
+                }
+                errors.append(error_info)
+            resource_data["errors"] = errors
+            
+            # Add suggestion for Invalid Reference Expression errors
+            if any(error.category == "Invalid Reference Expression" for error in resource.errors):
+                resource_data["suggestion"] = "Use get_resource_output_tree for the resource you're trying to reference."
 
         return resource_data
 
@@ -269,9 +285,36 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         else:
             # Create an API instance and update the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            result = api_instance.update_resources_using_put(branch, [resource_request], project_name)
+            api_instance.update_resources_using_put([resource_request], branch, project_name)
             
-            return f"Successfully updated resource '{resource_name}' of type '{resource_type}'."
+            # Check for errors after the update
+            dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
+            resource_response = dropdown_api.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
+            
+            update_result = {
+                "message": f"Successfully updated resource '{resource_name}' of type '{resource_type}'."
+            }
+            
+            # Add errors if any
+            if hasattr(resource_response, 'errors') and resource_response.errors:
+                errors = []
+                for error in resource_response.errors:
+                    error_info = {
+                        "message": error.message,
+                        "category": error.category,
+                        "severity": error.severity if hasattr(error, 'severity') else None
+                    }
+                    errors.append(error_info)
+                
+                update_result["errors"] = errors
+                update_result["warning"] = "Resource was updated but has validation errors that need to be fixed."
+                
+                # If it's an Invalid Reference Expression, suggest checking outputs
+                if any(error.category == "Invalid Reference Expression" for error in resource_response.errors):
+                    update_result["suggestion"] = "Please call get_resource_output_tree for the resource you are trying to refer to."
+            
+            import json
+            return json.dumps(update_result, indent=2)
 
     except Exception as e:
         raise ValueError(
@@ -533,9 +576,36 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         else:
             # Create an API instance and create the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            result = api_instance.create_resources_using_post(branch, [resource_request], project_name)
+            api_instance.create_resources_using_post([resource_request], branch, project_name)
             
-            return f"Successfully created resource '{resource_name}' of type '{resource_type}'."
+            # Check for errors after the addition
+            dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
+            resource_response = dropdown_api.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
+            
+            add_result = {
+                "message": f"Successfully created resource '{resource_name}' of type '{resource_type}'."
+            }
+            
+            # Add errors if any
+            if hasattr(resource_response, 'errors') and resource_response.errors:
+                errors = []
+                for error in resource_response.errors:
+                    error_info = {
+                        "message": error.message,
+                        "category": error.category,
+                        "severity": error.severity if hasattr(error, 'severity') else None
+                    }
+                    errors.append(error_info)
+                
+                add_result["errors"] = errors
+                add_result["warning"] = "Resource was added but has validation errors that need to be fixed."
+                
+                # If it's an Invalid Reference Expression, suggest checking outputs
+                if any(error.category == "Invalid Reference Expression" for error in resource_response.errors):
+                    add_result["suggestion"] = "Please call get_resource_output_tree for the resource you are trying to refer to."
+            
+            import json
+            return json.dumps(add_result, indent=2)
 
     except Exception as e:
         raise ValueError(
@@ -618,7 +688,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
         else:
             # Create an API instance and delete the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            result = api_instance.delete_resources_using_delete(branch, [resource_request], project_name)
+            api_instance.delete_resources_using_delete([resource_request], branch,  project_name)
             
             return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
