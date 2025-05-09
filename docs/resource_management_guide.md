@@ -15,7 +15,55 @@ requiring inputs from others.
 - **Version**: The version of the resource type implementation.
 - **Inputs**: References to other resources that this resource depends on.
 - **Spec**: The configuration section of a resource that defines its behavior.
+- **Environment/Cluster**: A deployment target for a project. Each project can have multiple environments (dev, staging, production, etc.).
+- **Resource Overrides**: Environment-specific configurations that modify resource properties for a specific environment.
 
+## Environment and Resource Override Concepts
+
+### Environments
+
+Environments (also called clusters) are separate instances where your project resources are deployed. A single project can be deployed to multiple environments, such as:
+
+- Development (dev)
+- Testing (test)
+- Staging
+- Production (prod)
+
+Each environment has its own configuration, which allows you to customize how your resources behave in different contexts. For example, you might want:
+
+- Fewer replicas of a service in development than in production
+- Different memory and CPU limits across environments
+- Environment-specific configuration parameters
+
+### Resource Overrides
+
+Resource overrides allow you to customize resource configurations for specific environments without changing the base project configuration. This is particularly useful for:
+
+1. **Environment-specific scaling**: Use different replica counts, memory limits, or CPU requirements in different environments.
+2. **Configuration differences**: Set different environment variables, feature flags, or connection strings per environment.
+3. **Security boundaries**: Apply stricter security settings in production while maintaining flexibility in development.
+
+Overrides only modify the specified properties; all other properties are inherited from the base resource configuration in the project.
+
+## Working with Environments and Overrides
+
+### Viewing Environment Resources
+
+To see what resources exist in an environment:
+
+1. First set the current environment using `env_tools.use_environment("environment-name")`
+2. Then use `get_all_resources_by_environment()` to list all resources in the environment
+3. Use `get_resource_by_environment(resource_type, resource_name)` to view details of a specific resource
+
+### Creating Resource Overrides
+
+To create or update overrides for a resource in an environment:
+
+1. Set the current environment using `env_tools.use_environment("environment-name")`
+2. Get the current resource configuration to understand what can be overridden
+3. Create an override object with only the properties you want to change
+4. Use `override_resource(resource_type, resource_name, override_data)` to apply the override
+```
 ## Complete Resource Management Workflow
 
 ### 1. Viewing Existing Resources
