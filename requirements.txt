@@ -1,3 +1,3 @@
 mcp[cli]
-swagger_client @ git+https://github.com/Facets-cloud/control-plane-python-sdk.git@2b5c933c5b0725a9fceb4c6183d15040b93731a7
+facets-control-plane-sdk
 pydantic~=2.11.2
