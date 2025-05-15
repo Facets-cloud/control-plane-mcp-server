@@ -70,7 +70,7 @@ def add_or_update_override_property(resource_type: str, resource_name: str, prop
         
         # Create the override request
         override_request = OverrideRequest()
-        override_request.overrides = json.dumps(current_overrides)
+        override_request.overrides = current_overrides
         
         # Apply the updated overrides
         result = api_instance.post_resource_override_object_using_post(
@@ -176,10 +176,10 @@ def remove_override_property(resource_type: str, resource_name: str, property_pa
         
         if current_overrides:
             # If there are still overrides left, update them
-            override_request.overrides = json.dumps(current_overrides)
+            override_request.overrides = current_overrides
         else:
             # If no overrides left, clear all overrides
-            override_request.overrides = None
+            override_request.overrides = {}
         
         # Apply the updated overrides
         result = api_instance.post_resource_override_object_using_post(
@@ -244,7 +244,7 @@ def replace_all_overrides(resource_type: str, resource_name: str, override_data:
     try:
         # Create the override request object
         override_request = OverrideRequest()
-        override_request.overrides = json.dumps(override_data)
+        override_request.overrides = override_data
         
         # Call the API to apply the override
         result = api_instance.post_resource_override_object_using_post(
@@ -302,7 +302,7 @@ def clear_all_overrides(resource_type: str, resource_name: str) -> Dict[str, Any
     try:
         # Create an empty override request
         override_request = OverrideRequest()
-        override_request.overrides = None
+        override_request.overrides = {}
         
         # Call the API to clear all overrides
         result = api_instance.post_resource_override_object_using_post(
