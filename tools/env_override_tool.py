@@ -437,6 +437,3 @@ def remove_resource_override(resource_type: str, resource_name: str, property_pa
         return remove_override_property(resource_type, resource_name, property_path)
     else:
         return clear_all_overrides(resource_type, resource_name)
-
-
-# Remove the old get_resource_overrides function since get_resource_by_environment already provides this
