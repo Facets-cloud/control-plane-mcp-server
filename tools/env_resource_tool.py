@@ -66,7 +66,8 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
                     "name": resource.resource_name,
                     "type": resource.resource_type,
                     "directory": resource.directory,
-                    "filename": resource.filename
+                    "filename": resource.filename,
+                    "info": resource.info.to_dict() if resource.info else None
                 }
                 result.append(resource_data)
                 
