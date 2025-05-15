@@ -1,7 +1,9 @@
 from utils.client_utils import ClientUtils
+from utils.dict_utils import deep_merge
 import swagger_client
 from typing import List, Dict, Any
 import json
+import copy
 
 mcp = ClientUtils.get_mcp_instance()
 
@@ -62,7 +64,7 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
             if not should_exclude:
                 resource_data = {
                     "name": resource.resource_name,
-                    "type": resource.resource_type,  # This is the intent/resource type
+                    "type": resource.resource_type,
                     "directory": resource.directory,
                     "filename": resource.filename
                 }
@@ -79,15 +81,25 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
     """
     Get a specific resource by type and name for the current environment (cluster).
     
-    This returns the current configuration of the resource deployed in the environment.
-    The "content" field contains the resource's actual configuration.
+    This returns the resource configuration including the base JSON, overrides,
+    effective configuration (deep merge of base + overrides), and override flag.
     
     Args:
         resource_type: The type of resource to retrieve (e.g., service, ingress, postgres, redis)
         resource_name: The name of the specific resource to retrieve
         
     Returns:
-        Dict[str, Any]: Resource details including name, type, and current configuration in the "content" field
+        Dict[str, Any]: Resource details including:
+            - name: Resource name
+            - type: Resource type
+            - directory: Resource directory
+            - filename: Resource filename
+            - base_config: The base JSON configuration
+            - overrides: Override configuration (if any)
+            - effective_config: Deep merged configuration (base + overrides)
+            - is_overridden: Boolean indicating if resource has overrides
+            - info: Resource info object
+            - errors: Any validation errors (if present)
         
     Raises:
         ValueError: If no current project or environment is set, or if the resource is not found.
@@ -115,14 +127,38 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
             include_content=True
         )
         
+        # Parse base content
+        base_config = json.loads(resource.content) if resource.content else None
+        
+        # Get override configuration
+        overrides = None
+        if hasattr(resource, 'override') and resource.override:
+            overrides = resource.override
+        
+        # Check if resource is overridden
+        is_overridden = False
+        if hasattr(resource, 'overridden'):
+            is_overridden = resource.overridden
+        elif overrides is not None:
+            # Fallback: if we have overrides but no overridden flag, assume it's overridden
+            is_overridden = True
+        
+        # Calculate effective configuration (deep merge of base + overrides)
+        effective_config = base_config
+        if base_config and overrides:
+            effective_config = deep_merge(copy.deepcopy(base_config), overrides)
+        
         # Format the response
         resource_data = {
             "name": resource.resource_name,
             "type": resource.resource_type,
             "directory": resource.directory,
             "filename": resource.filename,
-            "content": json.loads(resource.content) if resource.content else None,
-            "info": resource.info.to_dict() if resource.info else None  # Add the info object as a separate field
+            "base_config": base_config,
+            "overrides": overrides,
+            "effective_config": effective_config,
+            "is_overridden": is_overridden,
+            "info": resource.info.to_dict() if resource.info else None
         }
         
         # Add errors if any exist
