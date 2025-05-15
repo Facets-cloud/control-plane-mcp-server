@@ -88,9 +88,9 @@ def get_all_environments() -> List[AbstractClusterModel]:
     # Create an instance of the API class
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
     # Call the method on the instance
-    environments = api_instance.get_clusters_using_get1(project.name)
+    environments = api_instance.get_clusters_overview_using_get(project.name)
     # Convert swagger models to Pydantic models
-    return [_convert_swagger_environment_to_pydantic(env) for env in environments]
+    return [_convert_swagger_environment_to_pydantic(env.cluster) for env in environments]
 
 @mcp.tool()
 def use_environment(environment_name: str):

@@ -1,135 +1,204 @@
-# Control Plane Resource Management Guide
+# Control Plane Resource Management Guide for LLMs
 
-## Resource Management Overview
+## Overview
 
-In Control Plane, a project (also called stack or blueprint) contains multiple resources that
-are defined in JSON files. Each resource has a specific type (also called intent) such as
-service, ingress, postgres, redis, etc. Resources can be interdependent, with some resources
-requiring inputs from others.
+Control Plane manages infrastructure through projects (also called stacks or blueprints) that contain multiple resources. Each resource has a specific type that defines its purpose (e.g., service, ingress, postgres, redis). This guide explains how to interact with the Control Plane MCP server to manage these resources effectively.
 
 ## Key Concepts
 
-- **Project/Stack/Blueprint**: These terms are used interchangeably to refer to a collection of resources.
-- **Resource/Intent**: Each resource has a type/intent (e.g., service, ingress, postgres) that defines its purpose.
-- **Flavor**: A variation of a resource type with specific characteristics.
-- **Version**: The version of the resource type implementation.
-- **Inputs**: References to other resources that this resource depends on.
-- **Spec**: The configuration section of a resource that defines its behavior.
+- **Project/Stack/Blueprint**: A collection of related infrastructure resources (terms used interchangeably)
+- **Resource/Intent**: Infrastructure components with specific types (service, postgres, redis, etc.)
+- **Flavor**: Variations of a resource type with different characteristics
+- **Version**: The implementation version of a resource type
+- **Inputs**: Dependencies between resources (one resource referencing outputs from another)
+- **Spec**: The configuration section that defines resource behavior
+- **Environment/Cluster**: Deployment targets (dev, staging, production, etc.)
+- **Resource Overrides**: Environment-specific configurations that modify base resource settings
 
-## Complete Resource Management Workflow
+## Working with Resources
 
-### 1. Viewing Existing Resources
+### Discovering Available Resources
 
-To see what resources already exist in a project:
-- Use `get_all_resources_by_project(project_name)` to list all resources in a project.
-- Use `get_resource_by_project(project_name, resource_type, resource_name)` to view details of a specific resource.
+**Before creating any resource**, determine what's available:
 
-### 2. Adding a New Resource
+1. **List Available Resource Types**: Use `list_available_resources(project_name)` to see all available resource types, their flavors, and versions
+2. **Understand Resource Dependencies**: Use `get_module_inputs(project_name, resource_type, flavor)` to see what dependencies a resource requires
+3. **Get Resource Schema**: Use `get_spec_for_module(project_name, resource_type, flavor, version)` to understand configuration options
+4. **Get Sample Configuration**: Use `get_sample_for_module(project_name, resource_type, flavor, version)` for a complete template
 
-Follow this exact workflow when adding a new resource:
+### Creating New Resources
 
-1. **Find Available Resource Types**:
-   - Call `list_available_resources(project_name)` to see what resource types, flavors, and versions are available.
-   - Select the desired resource_type/intent (e.g., 'service', 'postgres') and note its flavor and version.
+Follow this workflow when a user wants to add infrastructure:
 
-2. **Check Required Inputs**:
-   - Call `get_module_inputs(project_name, resource_type, flavor)` to see what inputs this resource requires.
-   - For each non-optional input with multiple compatible resources, ASK THE USER which one to use.
-   - Present options clearly: "For the 'database' input, available options are: X, Y, Z. Which would you like to use?"
-   - If a required input has no compatible resources, you must create those dependencies first.
+```
+User Request: "Add a PostgreSQL database to my project"
 
-3. **Understand the Resource Schema**:
-   - Call `get_spec_for_module(project_name, resource_type, flavor, version)` to get the schema that defines valid configuration options.
-   - Call `get_sample_for_module(project_name, resource_type, flavor, version)` to get a complete template with sample values.
-
-4. **Create and Customize Content**:
-   - Start with the sample template from the previous step.
-   - Modify it according to user requirements and the schema specifications.
-   - Pay special attention to fields with annotations (see Special Annotations section).
-
-5. **Add the Resource**:
-   - Call `add_resource()` with all required parameters:
-     - project_name, resource_type, resource_name, flavor, version
-     - The customized content from step 4
-     - A map of inputs where each key is an input name and each value is a dict with:
-       * resource_name: The name of the selected resource
-       * resource_type: The type of the selected resource
-       * output_name: The output name from the selected resource
-
-Example inputs parameter format:
-```python
-{
-    "database": {
-        "resource_name": "my-postgres",
-        "resource_type": "postgres",
-        "output_name": "postgres_connection"
-    }
-}
+Your Process:
+1. Call list_available_resources(project_name) → Find postgres type, note flavor/version
+2. Call get_module_inputs(project_name, "postgres", flavor) → Check dependencies
+3. Call get_spec_for_module(...) → Understand configuration schema
+4. Call get_sample_for_module(...) → Get template
+5. Customize the template based on user requirements
+6. Call add_resource() with the final configuration
 ```
 
-### 3. Updating an Existing Resource
+**Important**: If a resource requires inputs from other resources that don't exist, create those dependencies first. Always ask the user to choose when multiple options are available.
 
-Follow these steps when updating a resource:
+### Modifying Existing Resources
 
-1. **Get Current Configuration**:
-   - Call `get_resource_by_project(project_name, resource_type, resource_name)` to retrieve the current configuration.
-   - The "content" field contains the resource's current configuration.
+To update a resource's configuration:
 
-2. **Understand the Schema**:
-   - Call `get_spec_for_resource(project_name, resource_type, resource_name)` to understand the valid fields and values.
-   - This shows the schema for the "spec" section of the resource JSON.
+1. **Get Current State**: `get_resource_by_project(project_name, resource_type, resource_name)`
+2. **Check Schema**: `get_spec_for_resource(project_name, resource_type, resource_name)` 
+3. **Modify Configuration**: Update the content while respecting the schema
+4. **Apply Changes**: `update_resource(project_name, resource_type, resource_name, updated_content)`
 
-3. **Make Modifications**:
-   - Create a modified version of the content based on the user's requirements.
-   - Ensure changes conform to the schema obtained in step 2.
-   - Be careful not to remove or alter required fields.
+### Viewing Resources
 
-4. **Update the Resource**:
-   - Call `update_resource(project_name, resource_type, resource_name, updated_content)` with the modified content.
+- **List All Resources**: `get_all_resources_by_project(project_name)`
+- **Get Specific Resource**: `get_resource_by_project(project_name, resource_type, resource_name)`
 
-### 4. Deleting a Resource
+## Environment Management and Overrides
 
-To delete a resource:
-- Before deletion, check if other resources depend on it using `get_all_resources_by_project(project_name)`.
-- Warn the user if dependencies exist, as deletion could break those resources.
-- Call `delete_resource(project_name, resource_type, resource_name)` to remove the resource.
+### Understanding Environments
 
-## Special Annotations
+Projects can be deployed to multiple environments (dev, staging, production). Each environment can have customized configurations through overrides without changing the base project.
 
-When reviewing resource schemas, watch for fields with special annotations:
+### Working with Environment Overrides
 
-### 1. Secret References (x-ui-secret-ref)
+**Set Environment Context First**: Always use `env_tools.use_environment("environment-name")` before working with environment-specific resources.
 
-When a field has the `x-ui-secret-ref` annotation:
-- Do NOT insert sensitive values directly in the JSON.
-- Use the reference format: `"${blueprint.self.secrets.<name_of_secret>}"`.
-- Ask if a secret has already been created, or if they want to create a new one.
+#### Viewing Resources in Environments
 
-Call `explain_ui_annotation("x-ui-secret-ref")` for detailed handling instructions.
+- **List Environment Resources**: `get_all_resources_by_environment()`
+- **Get Resource with Override Info**: `get_resource_by_environment(resource_type, resource_name)`
 
-### 2. Output References (x-ui-output-type)
+The environment resource view shows:
+- `base_config`: Original configuration from the project
+- `overrides`: Environment-specific modifications
+- `effective_config`: Final merged configuration (base + overrides)
+- `is_overridden`: Whether the resource has environment-specific changes
 
-When a field has the `x-ui-output-type` annotation:
-- Call `get_output_references(project_name, output_type)` to find available outputs.
-- Ask the user to choose from the list of available references.
-- Use the reference format provided by the tool in the field.
+#### Managing Overrides
 
-Call `explain_ui_annotation("x-ui-output-type")` for detailed handling instructions.
+**Recommended Approach - Property-Level Changes**:
 
-## Best Practices
+1. **Preview Changes**: `preview_override_effect(resource_type, resource_name, property_path, value)`
+2. **Add/Update Property**: `add_or_update_override_property(resource_type, resource_name, property_path, value)`
+3. **Remove Property**: `remove_override_property(resource_type, resource_name, property_path)`
 
-1. **Validate Before Updating**:
-   - Always check the current resource state before making changes.
-   - Understand the schema requirements before updating a resource.
+**Complete Override Management**:
 
-2. **Handle Dependencies Carefully**:
-   - When adding resources, ensure all required inputs are properly configured.
-   - When deleting resources, check for dependencies that might be affected.
+- **Replace All Overrides**: `replace_all_overrides(resource_type, resource_name, override_data)`
+- **Clear All Overrides**: `clear_all_overrides(resource_type, resource_name)`
 
-3. **Ask User for Resource Selection**:
-   - When multiple options exist for inputs, always ask the user to choose.
-   - Never select inputs automatically unless there's only one option or it's clearly specified.
+**Property Path Format**: Use dot notation for nested properties (e.g., `"spec.replicas"`, `"spec.resources.limits.memory"`)
 
-4. **Secure Handling of Sensitive Data**:
-   - Always use secret references for sensitive information.
-   - Never include actual sensitive values in the resource JSON.
+#### Common Override Scenarios
+
+**Scaling Differences**:
+```
+# Development environment
+add_or_update_override_property("service", "web-app", "spec.replicas", 1)
+add_or_update_override_property("service", "web-app", "spec.resources.limits.memory", "256Mi")
+
+# Production environment
+add_or_update_override_property("service", "web-app", "spec.replicas", 10)
+add_or_update_override_property("service", "web-app", "spec.resources.limits.memory", "2Gi")
+```
+
+**Environment Variables**:
+```
+# Add debug settings for staging
+add_or_update_override_property("service", "api", "spec.env", [
+    {"name": "DEBUG", "value": "true"},
+    {"name": "LOG_LEVEL", "value": "debug"}
+])
+```
+
+**Database Sizing**:
+```
+# Smaller database for development
+add_or_update_override_property("postgres", "main-db", "spec.storage.size", "5Gi")
+
+# Larger database for production  
+add_or_update_override_property("postgres", "main-db", "spec.storage.size", "100Gi")
+```
+
+### Override Validation
+
+**Critical**: The effective configuration (base + overrides) must conform to the resource's schema. Always:
+
+1. Check the schema: `get_spec_for_resource(resource_type, resource_name)`
+2. Preview changes: `preview_override_effect()` before applying
+3. Verify the effective configuration is valid
+
+## Special Field Handling
+
+### Secret References (x-ui-secret-ref annotation)
+
+When a schema field has `x-ui-secret-ref`:
+- **Never store sensitive values directly**
+- Use the reference format: `"${blueprint.self.secrets.<secret_name>}"`
+- Call `explain_ui_annotation("x-ui-secret-ref")` for detailed instructions
+
+### Output References (x-ui-output-type annotation)
+
+When a schema field has `x-ui-output-type`:
+- Call `get_output_references(project_name, output_type)` to see available outputs
+- Ask the user to select from available options
+- Use the reference format provided by the tool
+- Call `explain_ui_annotation("x-ui-output-type")` for detailed instructions
+
+## Best Practices for LLM Interactions
+
+### 1. Always Validate First
+- Check current resource state before making changes
+- Understand schema requirements before updates
+- Use preview functions to validate overrides
+
+### 2. Handle Dependencies Properly
+- Ensure all required inputs exist before creating resources
+- Check for dependent resources before deletion
+- Ask users to choose when multiple options exist for inputs
+
+### 3. Secure Data Handling
+- Always use secret references for sensitive information
+- Never include actual passwords, keys, or tokens in configurations
+
+### 4. Clear Communication
+- When multiple options exist (inputs, outputs), present them clearly to the user
+- Explain the implications of changes, especially for overrides
+- Provide context about what environments and overrides will affect
+
+### 5. Structured Workflow
+- Set environment context when working with overrides
+- Follow the create → preview → apply → verify pattern
+- Document any assumptions made during resource creation
+
+## Error Handling
+
+### Common Issues
+
+1. **Schema Validation Errors**: Effective configuration doesn't match the required schema
+   - Solution: Check schema requirements and adjust overrides accordingly
+
+2. **Missing Dependencies**: Required inputs reference non-existent resources
+   - Solution: Create dependencies first or update input references
+
+3. **Invalid Override Property Paths**: Path doesn't exist in the resource structure
+   - Solution: Verify property paths against the resource schema
+
+4. **Environment Not Set**: Attempting override operations without setting environment
+   - Solution: Always call `env_tools.use_environment()` first
+
+### Recovery Strategies
+
+- Use `get_resource_by_environment()` to inspect current state and errors
+- Use `preview_override_effect()` to test changes before applying
+- Use `clear_all_overrides()` as a last resort to return to base configuration
+- Check schema documentation when validation fails
+
+## Summary
+
+This MCP server provides comprehensive tools for managing Control Plane infrastructure. The key to successful interaction is understanding the relationship between projects, resources, environments, and overrides. Always follow the validation → preview → apply → verify pattern, especially when working with environment overrides.
