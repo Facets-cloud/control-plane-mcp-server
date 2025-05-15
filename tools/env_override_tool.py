@@ -411,29 +411,3 @@ def preview_override_effect(resource_type: str, resource_name: str, property_pat
     except Exception as e:
         raise ValueError(f"Failed to preview override effect for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {str(e)}")
 
-
-# Legacy function kept for backward compatibility but marked as deprecated
-@mcp.tool()
-def override_resource(resource_type: str, resource_name: str, override_data: Dict[str, Any], sync: bool = True) -> Dict[str, Any]:
-    """
-    DEPRECATED: Use replace_all_overrides() instead.
-    
-    Create or update overrides for a specific resource in the current environment.
-    
-    WARNING: This function completely replaces existing overrides.
-    """
-    return replace_all_overrides(resource_type, resource_name, override_data)
-
-
-# Legacy function kept for backward compatibility but marked as deprecated  
-@mcp.tool()
-def remove_resource_override(resource_type: str, resource_name: str, property_path: Optional[str] = None, sync: bool = True) -> Dict[str, Any]:
-    """
-    DEPRECATED: Use remove_override_property() or clear_all_overrides() instead.
-    
-    Remove overrides for a specific resource or a specific property in the current environment.
-    """
-    if property_path:
-        return remove_override_property(resource_type, resource_name, property_path)
-    else:
-        return clear_all_overrides(resource_type, resource_name)
