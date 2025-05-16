@@ -148,8 +148,8 @@ def refresh_current_project():
 @mcp.tool()
 def get_secrets_and_vars():
     """
-    Get secrets and vars of the current project. Use This to Prompt user If a variable
-    already exists, before calling create_variable
+    Refresh the current project data from the server and then get secrets and vars of the current project.
+    Use This to Prompt user If a variable already exists, before calling create_variable
 
     Returns:
         dict: Contains secrets and vars of the current project.
@@ -159,9 +159,12 @@ def get_secrets_and_vars():
     """
     if not ClientUtils.get_current_project():
         raise ValueError("No current project is set.")
+    
+    # refresh current project data from server
+    refreshed_project = refresh_current_project()
 
-    # Return the variables from the cached project
-    return ClientUtils.get_current_project().cluster_variables_meta
+    # Return the variables from the refreshed project
+    return refreshed_project.cluster_variables_meta
 
 
 @mcp.tool()
