@@ -1,3 +1,4 @@
 mcp[cli]
 facets-control-plane-sdk
 pydantic~=2.11.2
+jsonschema~=4.23.0
