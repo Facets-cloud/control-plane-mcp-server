@@ -11,7 +11,8 @@ resource_schema = {
         "kind": {"type": "string"},
         "flavor": {"type": "string"},
         "version": {"type": "string"},
-        "spec": Draft7Validator.META_SCHEMA,  # Use the nested object schema
+        # "spec": Draft7Validator.META_SCHEMA,  # Use the nested object schema
+        "spec": {"type": "object"},
     },
     "required": ["kind", "flavor", "version", "spec"],
 }
@@ -36,8 +37,8 @@ def validate_resource(resource_data: Dict[str, Any], resource_spec_schema: Dict[
         raise ValueError("content not provided in resource. content must be specified to create or update a resource. Please provide content in the resource.")
 
     # Update spec in resource_schema
-    if resource_spec_schema:
-        resource_schema_copy["properties"]["spec"] = resource_spec_schema
+    # if resource_spec_schema:
+    #     resource_schema_copy["properties"]["spec"] = resource_spec_schema
 
     try:
         # Validate the resource data content
