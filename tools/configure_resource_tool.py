@@ -3,6 +3,7 @@ import swagger_client
 from swagger_client.models import ResourceFileRequest
 from typing import List, Dict, Any
 import json
+from utils.validation_utils import validate_resource
 
 mcp = ClientUtils.get_mcp_instance()
 
@@ -245,6 +246,22 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         resource_request.filename = current_resource.get("filename")
         resource_request.resource_name = resource_name
         resource_request.resource_type = resource_type
+
+        # validate the resource content with spec schema
+        resource_data = {
+            "name": resource_name,
+            "type": resource_type,
+            "content": content
+        }
+
+        # get the spec schema for the resource. if no spec exists, set as empty dict {}
+        try:
+            resource_spec_schema = get_spec_for_resource(resource_type, resource_name)
+        except:
+            resource_spec_schema = {}
+        
+        # validate the resource data configuration with the spec schema. validation error will be automatically raised if validation fails
+        validate_resource(resource_data, resource_spec_schema)
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
@@ -539,6 +556,22 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         resource_request.flavor = flavor
         resource_request.version = version
         # Directory and filename will be determined by the server
+
+        # validate the resource content with spec schema
+        resource_data = {
+            "name": resource_name,
+            "type": resource_type,
+            "content": content
+        }
+
+        # get the spec schema for the module. if no spec exists, set as empty dict {}
+        try:
+            resource_spec_schema = get_spec_for_module(resource_type, flavor, version)
+        except:
+            resource_spec_schema = {}
+        
+        # validate the resource data configuration with the spec schema. validation error will be automatically raised if validation fails
+        validate_resource(resource_data, resource_spec_schema)
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
@@ -1047,6 +1080,3 @@ def list_available_resources() -> List[Dict[str, Any]]:
 
     except Exception as e:
         raise ValueError(f"Failed to list available resources for project '{project_name}': {str(e)}")
-
-
-
