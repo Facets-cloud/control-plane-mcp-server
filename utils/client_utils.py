@@ -169,3 +169,26 @@ class ClientUtils:
         api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
         refreshed_project = api_instance.get_stack_using_get(curr_project.name)
         ClientUtils.set_current_project(refreshed_project)
+
+    @staticmethod
+    def extract_error_message(e):
+        """
+        Extract a user-friendly error message from an exception, especially HTTP errors.
+        Checks for 'message', 'error', or 'detail' fields in the response body.
+        """
+        error_message = None
+        if hasattr(e, 'body'):
+            try:
+                import json
+                body = json.loads(e.body)
+                error_message = (
+                    body.get('message') or
+                    body.get('error') or
+                    body.get('detail') or
+                    str(body)
+                )
+            except Exception:
+                error_message = str(e)
+        else:
+            error_message = str(e)
+        return error_message
