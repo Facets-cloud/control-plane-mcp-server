@@ -1,5 +1,5 @@
 from pydantic_generated.variablesmodel import VariablesModel
-from utils.client_utils import ClientUtils, extract_error_message
+from utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import Variables
 from typing import List, Dict
@@ -143,7 +143,7 @@ def use_project(project_name: str):
         ClientUtils.set_current_project(project)
         return f"Current project set to {project.name}"
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,

@@ -1,4 +1,4 @@
-from utils.client_utils import ClientUtils, extract_error_message
+from utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import ResourceFileRequest
 from typing import List, Dict, Any
@@ -63,7 +63,7 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
         return result
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -135,7 +135,7 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
         return resource_data
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -240,7 +240,7 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
         return json.loads(module_response.spec)
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -393,7 +393,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             return json.dumps(update_result, indent=2)
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -480,7 +480,7 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
         return result
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -740,7 +740,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             return json.dumps(add_result, indent=2)
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -835,7 +835,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
             return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -905,7 +905,7 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
         return json.loads(module_response.spec)
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -970,7 +970,7 @@ def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, A
         return json.loads(module_response.sample_json)
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -1178,7 +1178,7 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,

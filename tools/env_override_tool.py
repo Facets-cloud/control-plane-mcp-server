@@ -1,4 +1,4 @@
-from utils.client_utils import ClientUtils, extract_error_message
+from utils.client_utils import ClientUtils
 from utils.dict_utils import deep_merge
 from utils.override_utils import get_nested_property, set_nested_property, remove_nested_property
 import swagger_client
@@ -96,7 +96,7 @@ def add_or_update_override_property(resource_type: str, resource_name: str, prop
         }
         
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -216,7 +216,7 @@ def remove_override_property(resource_type: str, resource_name: str, property_pa
         }
         
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -284,7 +284,7 @@ def replace_all_overrides(resource_type: str, resource_name: str, override_data:
         }
         
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -348,7 +348,7 @@ def clear_all_overrides(resource_type: str, resource_name: str) -> Dict[str, Any
         }
         
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -445,7 +445,7 @@ def preview_override_effect(resource_type: str, resource_name: str, property_pat
         }
         
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,

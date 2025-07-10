@@ -1,4 +1,4 @@
-from utils.client_utils import ClientUtils, extract_error_message
+from utils.client_utils import ClientUtils
 from utils.dict_utils import deep_merge
 import swagger_client
 from typing import List, Dict, Any
@@ -78,7 +78,7 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
         return result
         
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
@@ -189,7 +189,7 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
         return resource_data
         
     except Exception as e:
-        error_message = extract_error_message(e)
+        error_message = ClientUtils.extract_error_message(e)
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
