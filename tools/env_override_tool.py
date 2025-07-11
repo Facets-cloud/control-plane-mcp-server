@@ -6,6 +6,8 @@ from swagger_client.models import OverrideRequest
 from typing import Dict, Any, Optional, Union
 import json
 import copy
+from mcp.shared.exceptions import McpError
+from mcp.types import ErrorData, INVALID_REQUEST
 
 mcp = ClientUtils.get_mcp_instance()
 
@@ -28,13 +30,15 @@ def add_or_update_override_property(resource_type: str, resource_name: str, prop
         Dict[str, Any]: The updated override configuration
         
     Raises:
-        ValueError: If no current project or environment is set, or if the operation fails
+        McpError: If no current project or environment is set, or if the operation fails
     """
     # Check if both project and environment are set
     if not ClientUtils.is_current_cluster_and_project_set():
-        raise ValueError(
-            "No current project or environment is set. "
-            "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
         )
     
     # Get current environment
@@ -92,7 +96,13 @@ def add_or_update_override_property(resource_type: str, resource_name: str, prop
         }
         
     except Exception as e:
-        raise ValueError(f"Failed to update override property '{property_path}' for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to update override property '{property_path}' for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -112,13 +122,15 @@ def remove_override_property(resource_type: str, resource_name: str, property_pa
         Dict[str, Any]: Result of the operation including remaining overrides
         
     Raises:
-        ValueError: If no current project or environment is set, or if the operation fails
+        McpError: If no current project or environment is set, or if the operation fails
     """
     # Check if both project and environment are set
     if not ClientUtils.is_current_cluster_and_project_set():
-        raise ValueError(
-            "No current project or environment is set. "
-            "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
         )
     
     # Get current environment
@@ -204,7 +216,13 @@ def remove_override_property(resource_type: str, resource_name: str, property_pa
         }
         
     except Exception as e:
-        raise ValueError(f"Failed to remove override property '{property_path}' for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to remove override property '{property_path}' for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -225,13 +243,15 @@ def replace_all_overrides(resource_type: str, resource_name: str, override_data:
         Dict[str, Any]: The new override configuration
         
     Raises:
-        ValueError: If no current project or environment is set, or if the operation fails
+        McpError: If no current project or environment is set, or if the operation fails
     """
     # Check if both project and environment are set
     if not ClientUtils.is_current_cluster_and_project_set():
-        raise ValueError(
-            "No current project or environment is set. "
-            "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
         )
     
     # Get current environment
@@ -264,7 +284,13 @@ def replace_all_overrides(resource_type: str, resource_name: str, override_data:
         }
         
     except Exception as e:
-        raise ValueError(f"Failed to replace overrides for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to replace overrides for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -283,13 +309,15 @@ def clear_all_overrides(resource_type: str, resource_name: str) -> Dict[str, Any
         Dict[str, Any]: A message indicating the result of the operation
         
     Raises:
-        ValueError: If no current project or environment is set, or if the operation fails
+        McpError: If no current project or environment is set, or if the operation fails
     """
     # Check if both project and environment are set
     if not ClientUtils.is_current_cluster_and_project_set():
-        raise ValueError(
-            "No current project or environment is set. "
-            "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
         )
     
     # Get current environment
@@ -320,7 +348,13 @@ def clear_all_overrides(resource_type: str, resource_name: str) -> Dict[str, Any
         }
         
     except Exception as e:
-        raise ValueError(f"Failed to clear overrides for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to clear overrides for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -341,13 +375,15 @@ def preview_override_effect(resource_type: str, resource_name: str, property_pat
         Dict[str, Any]: Preview of the effective configuration with the proposed change
         
     Raises:
-        ValueError: If no current project or environment is set, or if the operation fails
+        McpError: If no current project or environment is set, or if the operation fails
     """
     # Check if both project and environment are set
     if not ClientUtils.is_current_cluster_and_project_set():
-        raise ValueError(
-            "No current project or environment is set. "
-            "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
         )
     
     # Get current environment
@@ -409,5 +445,11 @@ def preview_override_effect(resource_type: str, resource_name: str, property_pat
         }
         
     except Exception as e:
-        raise ValueError(f"Failed to preview override effect for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to preview override effect for resource '{resource_name}' of type '{resource_type}' in environment '{current_environment.name}': {error_message}"
+            )
+        )
 

@@ -45,3 +45,6 @@ logs/
 # Local configuration
 .env.local
 .env.*.local
+
+# Additional configuration
+.DS_Store

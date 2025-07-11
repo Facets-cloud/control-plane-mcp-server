@@ -1,8 +1,10 @@
 # Initialize configuration and MCP instance
 import swagger_client
+from dotenv import load_dotenv
+import os
+load_dotenv()
 from utils.client_utils import ClientUtils
 from tools import *
-
 
 def _test_login() -> bool:
     """
@@ -24,3 +26,5 @@ if __name__ == "__main__":
     mcp = ClientUtils.get_mcp_instance()
     if _test_login():
         mcp.run(transport="stdio")
+        print("🚀 MCP Server is running")
+

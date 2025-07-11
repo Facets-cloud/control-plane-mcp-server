@@ -3,6 +3,8 @@ from utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import Variables
 from typing import List, Dict
+from mcp.shared.exceptions import McpError
+from mcp.types import ErrorData, INVALID_REQUEST
 
 mcp = ClientUtils.get_mcp_instance()
 
@@ -17,13 +19,18 @@ def create_variable(name: str, variable: VariablesModel) -> None:
         variable: VariablesModel object of the variable to create.
 
     Raises:
-        ValueError: If the variable already exists.
+        McpError: If the variable already exists.
     """
     current_vars = get_secrets_and_vars()
     current_project = ClientUtils.get_current_project()
 
     if name in current_vars:
-        raise ValueError(f"The variable '{name}' already exists.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"The variable '{name}' already exists."
+            )
+        )
 
     variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
 
@@ -43,13 +50,18 @@ def update_variable(name: str, variable: VariablesModel) -> None:
         variable: VariablesModel object of the variable to update.
 
     Raises:
-        ValueError: If the variable does not exist.
+        McpError: If the variable does not exist.
     """
     current_vars = get_secrets_and_vars()
     current_project = ClientUtils.get_current_project()
 
     if name not in current_vars:
-        raise ValueError(f"The variable '{name}' does not exist.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"The variable '{name}' does not exist."
+            )
+        )
 
     variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
 
@@ -71,16 +83,26 @@ def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
         IMPORTANT: Only send this true if you have asked user and warned him that this will remove variable and is a destructive action
 
     Raises:
-        ValueError: If the variable does not exist or if changes have not been confirmed.
+        McpError: If the variable does not exist or if changes have not been confirmed.
     """
     if not confirmed_by_user:
-        raise ValueError("You need to confirm the changes with the user first as this is a destructive change.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="You need to confirm the changes with the user first as this is a destructive change."
+            )
+        )
 
     current_vars = get_secrets_and_vars()
     current_project = ClientUtils.get_current_project()
 
     if name not in current_vars:
-        raise ValueError(f"The variable '{name}' does not exist.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"The variable '{name}' does not exist."
+            )
+        )
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
     result = api_instance.delete_variables_using_delete(current_project.name, [name])
@@ -121,7 +143,13 @@ def use_project(project_name: str):
         ClientUtils.set_current_project(project)
         return f"Current project set to {project.name}"
     except Exception as e:
-        raise ValueError(f"Failed to set project: {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to set project: {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -133,10 +161,15 @@ def refresh_current_project():
         Stack: The refreshed project object
         
     Raises:
-        ValueError: If no current project is set.
+        McpError: If no current project is set.
     """
     if not ClientUtils.get_current_project():
-        raise ValueError("No current project is set.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set."
+            )
+        )
 
     curr_project = ClientUtils.get_current_project()
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
@@ -155,10 +188,15 @@ def get_secrets_and_vars():
         dict: Contains secrets and vars of the current project.
 
     Raises:
-        ValueError: If no current project is set.
+        McpError: If no current project is set.
     """
     if not ClientUtils.get_current_project():
-        raise ValueError("No current project is set.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set."
+            )
+        )
 
     # Return the variables from the cached project
     return ClientUtils.get_current_project().cluster_variables_meta
@@ -176,7 +214,7 @@ def get_project_details(project_name: str):
         dict: Contains details of the project.
 
     Raises:
-        ValueError: If the project does not exist.
+        McpError: If the project does not exist.
     
     Prompt:
         If a user directly mentions or tries to use a project, use this tool to know its
@@ -186,7 +224,12 @@ def get_project_details(project_name: str):
     project_details = api_instance.get_stack_using_get(project_name)
 
     if not project_details:
-        raise ValueError(f"The project '{project_name}' does not exist.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"The project '{project_name}' does not exist."
+            )
+        )
 
     return project_details
 
@@ -203,11 +246,16 @@ def get_variable_by_name(name: str):
         VariablesModel: The variable object corresponding to the name.
 
     Raises:
-        ValueError: If the variable does not exist.
+        McpError: If the variable does not exist.
     """
     current_vars = get_secrets_and_vars()
 
     if name not in current_vars:
-        raise ValueError(f"The variable '{name}' does not exist.")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"The variable '{name}' does not exist."
+            )
+        )
 
     return current_vars[name]

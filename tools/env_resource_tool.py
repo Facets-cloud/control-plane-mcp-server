@@ -4,6 +4,8 @@ import swagger_client
 from typing import List, Dict, Any
 import json
 import copy
+from mcp.shared.exceptions import McpError
+from mcp.types import ErrorData, INVALID_REQUEST
 
 mcp = ClientUtils.get_mcp_instance()
 
@@ -21,13 +23,15 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
         in the current environment.
         
     Raises:
-        ValueError: If no current project or environment is set.
+        McpError: If no current project or environment is set.
     """
     # Check if both project and environment are set
     if not ClientUtils.is_current_cluster_and_project_set():
-        raise ValueError(
-            "No current project or environment is set. "
-            "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
         )
     
     # Get current environment
@@ -74,7 +78,13 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
         return result
         
     except Exception as e:
-        raise ValueError(f"Failed to get resources for environment '{current_environment.name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get resources for environment '{current_environment.name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -103,13 +113,15 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
             - errors: Any validation errors (if present)
         
     Raises:
-        ValueError: If no current project or environment is set, or if the resource is not found.
+        McpError: If no current project or environment is set, or if the resource is not found.
     """
     # Check if both project and environment are set
     if not ClientUtils.is_current_cluster_and_project_set():
-        raise ValueError(
-            "No current project or environment is set. "
-            "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+            )
         )
     
     # Get current environment
@@ -177,5 +189,10 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
         return resource_data
         
     except Exception as e:
-        raise ValueError(
-            f"Failed to get resource '{resource_name}' of type '{resource_type}' for environment '{current_environment.name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get resource '{resource_name}' of type '{resource_type}' for environment '{current_environment.name}': {error_message}"
+            )
+        )

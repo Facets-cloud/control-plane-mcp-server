@@ -4,6 +4,8 @@ from swagger_client.models import ResourceFileRequest
 from typing import List, Dict, Any
 import json
 from utils.validation_utils import validate_resource
+from mcp.shared.exceptions import McpError
+from mcp.types import ErrorData, INVALID_REQUEST
 
 mcp = ClientUtils.get_mcp_instance()
 
@@ -18,7 +20,12 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -56,7 +63,13 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
         return result
 
     except Exception as e:
-        raise ValueError(f"Failed to get resources for project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get resources for project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -80,7 +93,12 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -117,8 +135,13 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
         return resource_data
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to get resource '{resource_name}' of type '{resource_type}' for project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get resource '{resource_name}' of type '{resource_type}' for project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -150,7 +173,12 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -160,7 +188,12 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
 
         # Extract intent (resource_type), flavor, and version from info
         if not resource.get("info"):
-            raise ValueError(f"Resource '{resource_name}' of type '{resource_type}' does not have info data")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Resource '{resource_name}' of type '{resource_type}' does not have info data"
+                )
+            )
 
         # Get info section
         info = resource["info"]
@@ -171,9 +204,19 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
 
         # Validate required fields
         if not flavor:
-            raise ValueError(f"Resource '{resource_name}' of type '{resource_type}' does not have a flavor defined")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Resource '{resource_name}' of type '{resource_type}' does not have a flavor defined"
+                )
+            )
         if not version:
-            raise ValueError(f"Resource '{resource_name}' of type '{resource_type}' does not have a version defined")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Resource '{resource_name}' of type '{resource_type}' does not have a version defined"
+                )
+            )
 
         # Now call the TF Module API to get the spec
         api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
@@ -186,14 +229,24 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
 
         # Extract and parse the spec from the response
         if not module_response.spec:
-            raise ValueError(f"No specification found for resource '{resource_name}' of type '{resource_type}'")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"No specification found for resource '{resource_name}' of type '{resource_type}'"
+                )
+            )
 
         # Return the spec as a JSON object
         return json.loads(module_response.spec)
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to get specification for resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get specification for resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -230,7 +283,12 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -335,8 +393,13 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             return json.dumps(update_result, indent=2)
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to update resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to update resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -376,7 +439,12 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -412,8 +480,13 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
         return result
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to get module inputs for resource type '{resource_type}' with flavor '{flavor}' in project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get module inputs for resource type '{resource_type}' with flavor '{flavor}' in project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -486,25 +559,45 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
 
         # If flavor is not provided, prompt the user
         if not flavor:
-            raise ValueError(f"Flavor must be specified for creating a new resource of type '{resource_type}'. "
-                             "Please provide a flavor parameter.")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Flavor must be specified for creating a new resource of type '{resource_type}'. "
+                             "Please provide a flavor parameter."
+                )
+            )
 
         # If version is not provided, prompt the user
         if not version:
-            raise ValueError(f"Version must be specified for creating a new resource of type '{resource_type}'. "
-                             "Please provide a version parameter.")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Version must be specified for creating a new resource of type '{resource_type}'. "
+                             "Please provide a version parameter."
+                )
+            )
 
         # Check if content is provided
         if not content:
-            raise ValueError(f"Content must be specified for creating a new resource of type '{resource_type}'. "
-                             "First use get_sample_for_module() to get a template, then customize it.")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Content must be specified for creating a new resource of type '{resource_type}'. "
+                             "First use get_sample_for_module() to get a template, then customize it."
+                )
+            )
 
         # Check if inputs should be validated
         if inputs is None:
@@ -515,10 +608,15 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
 
             if required_inputs:
                 input_list = ", ".join(required_inputs)
-                raise ValueError(f"Inputs must be specified for creating a resource of type '{resource_type}'. "
+                raise McpError(
+                    ErrorData(
+                        code=INVALID_REQUEST,
+                        message=f"Inputs must be specified for creating a resource of type '{resource_type}'. "
                                  f"The following inputs are required: {input_list}. "
                                  f"Call get_module_inputs('{resource_type}', '{flavor}') "
-                                 f"to see all required inputs and their compatible resources.")
+                                 f"to see all required inputs and their compatible resources."
+                    )
+                )
 
         # Create a ResourceFileRequest instance with the resource details
         resource_request = ResourceFileRequest()
@@ -642,8 +740,13 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             return json.dumps(add_result, indent=2)
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to add resource '{resource_name}' of type '{resource_type}' to project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to add resource '{resource_name}' of type '{resource_type}' to project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -674,7 +777,12 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -727,8 +835,13 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
             return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to delete resource '{resource_name}' of type '{resource_type}' from project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to delete resource '{resource_name}' of type '{resource_type}' from project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -760,7 +873,12 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -776,15 +894,24 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
 
         # Extract and parse the spec from the response
         if not module_response.spec:
-            raise ValueError(
-                f"No specification found for module with intent '{intent}', flavor '{flavor}', version '{version}'")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"No specification found for module with intent '{intent}', flavor '{flavor}', version '{version}'"
+                )
+            )
 
         # Return the spec as a JSON object
         return json.loads(module_response.spec)
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to get specification for module with intent '{intent}', flavor '{flavor}', version '{version}' in project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get specification for module with intent '{intent}', flavor '{flavor}', version '{version}' in project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -811,7 +938,12 @@ def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, A
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -827,15 +959,24 @@ def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, A
 
         # Extract and parse the sample JSON from the response
         if not module_response.sample_json:
-            raise ValueError(
-                f"No sample JSON found for module with intent '{intent}', flavor '{flavor}', version '{version}'")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"No sample JSON found for module with intent '{intent}', flavor '{flavor}', version '{version}'"
+                )
+            )
 
         # Return the sample JSON as a JSON object
         return json.loads(module_response.sample_json)
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to get sample JSON for module with intent '{intent}', flavor '{flavor}', version '{version}' in project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get sample JSON for module with intent '{intent}', flavor '{flavor}', version '{version}' in project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -855,7 +996,12 @@ def get_output_references(output_type: str) -> List[Dict[str, Any]]:
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -881,8 +1027,12 @@ def get_output_references(output_type: str) -> List[Dict[str, Any]]:
         return formatted_references
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to get output references for project '{project_name}' and output type '{output_type}': {str(e)}")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get output references for project '{project_name}' and output type '{output_type}': {str(e)}"
+            )
+        )
 
 
 @mcp.tool()
@@ -981,7 +1131,12 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
     
     try:
@@ -994,13 +1149,22 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
 
         # Check if outProperties exists and contains data for the specified resource type
         if not autocomplete_data.out_properties:
-            raise ValueError(f"No output properties found for project '{project_name}'")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"No output properties found for project '{project_name}'"
+                )
+            )
 
         # Get the output tree for the specified resource type
         output_tree = autocomplete_data.out_properties.get(resource_type)
         if not output_tree:
-            raise ValueError(
-                f"No output properties found for resource type '{resource_type}' in project '{project_name}'")
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"No output properties found for resource type '{resource_type}' in project '{project_name}'"
+                )
+            )
 
         # Convert to dictionary for easier consumption
         if hasattr(output_tree, 'to_dict'):
@@ -1014,8 +1178,13 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        raise ValueError(
-            f"Failed to get output tree for resource type '{resource_type}' in project '{project_name}': {str(e)}")
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get output tree for resource type '{resource_type}' in project '{project_name}': {error_message}"
+            )
+        )
 
 
 @mcp.tool()
@@ -1045,7 +1214,12 @@ def list_available_resources() -> List[Dict[str, Any]]:
     # Get current project
     current_project = ClientUtils.get_current_project()
     if not current_project:
-        raise ValueError("No current project is set. Please set a project using project_tools.use_project().")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using project_tools.use_project()."
+            )
+        )
     project_name = current_project.name
 
     try:
@@ -1079,4 +1253,9 @@ def list_available_resources() -> List[Dict[str, Any]]:
         return result
 
     except Exception as e:
-        raise ValueError(f"Failed to list available resources for project '{project_name}': {str(e)}")
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to list available resources for project '{project_name}': {str(e)}"
+            )
+        )
