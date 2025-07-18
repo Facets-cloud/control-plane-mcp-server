@@ -6,9 +6,9 @@ from mcp.types import ErrorData, INVALID_REQUEST
 from swagger_client.models.list_deployments_wrapper import ListDeploymentsWrapper
 from swagger_client.models.deployment_log import DeploymentLog
 from swagger_client.models.deployment_request import DeploymentRequest
-from utils.client_utils import ClientUtils
-from pydantic_generated.deploymentrequestmodel import DeploymentRequestModel
-from tools.env_tools import get_current_environment_details
+from ..utils.client_utils import ClientUtils
+from ..pydantic_generated.deploymentrequestmodel import DeploymentRequestModel
+from .env_tools import get_current_environment_details
 
 mcp = ClientUtils.get_mcp_instance()
 

@@ -101,9 +101,38 @@ Each operation requires specific checks and confirmations to ensure safe executi
 - uv package manager (install using `brew install uv`)
 - A running Control Plane API instance
 
+### Installation via PyPI
+
+```bash
+# Install the package
+pip install facets-cp-mcp-server
+
+# Run the server
+facets-cp-mcp-server
+```
+
 ### Usage with Claude Desktop
 
-To use this MCP server with Claude Desktop, first install uv using `brew install uv`, then add the following configuration to your `claude_desktop_config.json` file (typically located at `~/Library/Application Support/Claude/claude_desktop_config.json`):
+To use this MCP server with Claude Desktop, add the following configuration to your `claude_desktop_config.json` file (typically located at `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+#### Option 1: Using installed package (Recommended)
+
+```json
+{
+  "mcpServers": {
+    "ControlPlaneServer": {
+      "command": "facets-cp-mcp-server",
+      "env": {
+        "CONTROL_PLANE_URL": "https://your-control-plane-url",
+        "FACETS_TOKEN": "your-facets-token",
+        "FACETS_USERNAME": "your-facets-username"
+      }
+    }
+  }
+}
+```
+
+#### Option 2: Using uv for development
 
 ```json
 {
@@ -114,7 +143,8 @@ To use this MCP server with Claude Desktop, first install uv using `brew install
         "run",
         "--directory",
         "/path/to/control-plane-mcp-server",
-        "main.py"
+        "--module",
+        "control_plane_mcp.server"
       ],
       "env": {
         "CONTROL_PLANE_URL": "https://your-control-plane-url",
@@ -127,13 +157,11 @@ To use this MCP server with Claude Desktop, first install uv using `brew install
 ```
 
 **Important Notes:**
-1. Replace `/path/to/control-plane-mcp-server` with the absolute path to the repository on your machine
-2. The `--directory` flag is critical - it sets the working directory for the script execution
-3. Update the environment variables with your Control Plane credentials
-4. After saving the configuration, restart Claude Desktop for the changes to take effect
-
-Using a simpler command like `uv run /path/to/control-plane-mcp-server/main.py` without the `--directory` flag will not work correctly, as the script needs to execute from its project directory to properly locate dependencies and modules.
-
+1. Replace `/path/to/control-plane-mcp-server` with the absolute path to the repository on your machine (for development setup)
+2. The `--directory` flag is critical for development - it sets the working directory for the script execution
+3. The `--module` flag runs the package module directly
+4. Update the environment variables with your Control Plane credentials
+5. After saving the configuration, restart Claude Desktop for the changes to take effect
 
 ### Environment Variables
 
@@ -158,10 +186,14 @@ uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-uv pip install -r requirements.txt
+uv sync
 
-# Run the server
-uv run main.py
+# Run the server for development
+uv run --module control_plane_mcp.server
+
+# Or install in development mode and run
+uv pip install -e .
+facets-cp-mcp-server
 ```
 
 ## Example Usage with Claude
@@ -183,7 +215,7 @@ Claude will automatically use the appropriate tools and display the results.
 
 To add support for more Control Plane APIs:
 
-1. Add new tool methods using the `@mcp.tool()` decorator in the tools directory
+1. Add new tool methods using the `@mcp.tool()` decorator in the `control_plane_mcp/tools/` directory
 2. Import your tools in `__init__.py` to register them with the MCP instance
 
 Follow the existing implementation patterns in the tools directory.
@@ -195,7 +227,16 @@ If you encounter issues:
 - Verify your Control Plane API is running and accessible
 - Check that authentication credentials are correct
 - Ensure you're using the correct API URL format
-- Make sure the `--directory` flag is used to correctly set the working directory
+- For development: Make sure the `--directory` flag is used to correctly set the working directory
 - Check Claude Desktop logs for error messages
-- Try running the server directly to see any error output
+- Try running the server directly to see any error output: `facets-cp-mcp-server` or `uv run --module control_plane_mcp.server`
 - Verify all required environment variables are set correctly
+
+## Publishing
+
+This package is published to PyPI as `facets-cp-mcp-server`. Releases are automatically published when tags are pushed:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```

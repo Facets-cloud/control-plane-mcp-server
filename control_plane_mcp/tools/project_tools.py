@@ -1,5 +1,5 @@
-from pydantic_generated.variablesmodel import VariablesModel
-from utils.client_utils import ClientUtils
+from ..pydantic_generated.variablesmodel import VariablesModel
+from ..utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import Variables
 from typing import List, Dict

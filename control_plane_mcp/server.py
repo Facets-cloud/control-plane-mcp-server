@@ -1,10 +1,15 @@
-# Initialize configuration and MCP instance
+"""Main server entry point for Facets Control Plane MCP Server."""
+
 import swagger_client
 from dotenv import load_dotenv
 import os
+
 load_dotenv()
-from utils.client_utils import ClientUtils
-from tools import *
+
+# Import from the package structure
+from .utils.client_utils import ClientUtils
+from .tools import *
+
 
 def _test_login() -> bool:
     """
@@ -22,9 +27,16 @@ def _test_login() -> bool:
         return False
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the MCP server."""
     mcp = ClientUtils.get_mcp_instance()
     if _test_login():
         mcp.run(transport="stdio")
         print("🚀 MCP Server is running")
+    else:
+        print("❌ Login test failed. Server not started.")
+        exit(1)
 
+
+if __name__ == "__main__":
+    main()
