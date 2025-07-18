@@ -1,5 +1,5 @@
-from utils.client_utils import ClientUtils
-from utils.dict_utils import deep_merge
+from ..utils.client_utils import ClientUtils
+from ..utils.dict_utils import deep_merge
 import swagger_client
 from typing import List, Dict, Any
 import json

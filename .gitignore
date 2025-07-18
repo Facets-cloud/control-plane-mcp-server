@@ -20,6 +20,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Auto-generated version files
+control_plane_mcp/_version.py
+
 # Virtual environments
 .env
 .venv

@@ -1,6 +1,6 @@
-from utils.client_utils import ClientUtils
-from utils.dict_utils import deep_merge
-from utils.override_utils import get_nested_property, set_nested_property, remove_nested_property
+from ..utils.client_utils import ClientUtils
+from ..utils.dict_utils import deep_merge
+from ..utils.override_utils import get_nested_property, set_nested_property, remove_nested_property
 import swagger_client
 from swagger_client.models import OverrideRequest
 from typing import Dict, Any, Optional, Union

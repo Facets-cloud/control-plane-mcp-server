@@ -1,9 +1,9 @@
-from utils.client_utils import ClientUtils
+from ..utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import ResourceFileRequest
 from typing import List, Dict, Any
 import json
-from utils.validation_utils import validate_resource
+from ..utils.validation_utils import validate_resource
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
 

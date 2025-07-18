@@ -1,5 +1,5 @@
 import os
-from utils.client_utils import ClientUtils
+from ..utils.client_utils import ClientUtils
 
 mcp = ClientUtils.get_mcp_instance()
 
