@@ -88,7 +88,7 @@ def get_all_environments() -> List[AbstractClusterModel]:
     # Create an instance of the API class
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
     # Call the method on the instance
-    environments = api_instance.get_clusters_overview_using_get(project.name)
+    environments = api_instance.get_clusters_overview(project.name)
     # Convert swagger models to Pydantic models
     return [_convert_swagger_environment_to_pydantic(env.cluster) for env in environments]
 
@@ -122,7 +122,7 @@ def use_environment(environment_name: str):
     
     # Get all environments directly from the API to avoid conversion issues
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-    environments = api_instance.get_clusters_using_get1(project.name)
+    environments = api_instance.get_clusters(project.name)
     
     # Find the environment by name
     found_environment = None
@@ -170,10 +170,10 @@ def get_current_environment_details() -> AbstractClusterModel:
     # Create an instance of the API class to get fresh data
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
     # Fetch the latest environment details
-    environments = api_instance.get_clusters_using_get1(project.name)
+    environments = api_instance.get_clusters(project.name)
 
     # get environment metadata to fetch the running state of the environment
-    cluster_metadata = api_instance.get_cluster_metadata_by_stack_using_get(project.name)
+    cluster_metadata = api_instance.get_cluster_metadata_by_stack(project.name)
 
     # Find the current environment in the refreshed list
     refreshed_environment = None

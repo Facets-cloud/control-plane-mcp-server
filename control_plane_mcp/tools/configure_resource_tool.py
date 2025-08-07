@@ -31,7 +31,7 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
     try:
 
         # Call the API to get all resources for the project
-        resources = api_instance.get_all_resources_by_stack_using_get(project_name, include_content=True)
+        resources = api_instance.get_all_resources_by_stack(project_name, include_content=True)
 
         # Extract and transform the relevant information
         result = []
@@ -59,9 +59,7 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
                     "info": resource.info.to_dict() if resource.info else None
                 }
                 result.append(resource_data)
-
         return result
-
     except Exception as e:
         error_message = ClientUtils.extract_error_message(e)
         raise McpError(
@@ -104,7 +102,7 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
     try:
 
         # Call the API directly with resource name, type, and project name
-        resource = api_instance.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
+        resource = api_instance.get_resource_by_stack(resource_name, resource_type, project_name)
 
         # Format the response
         resource_data = {
@@ -219,8 +217,8 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
             )
 
         # Now call the TF Module API to get the spec
-        api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
-        module_response = api_instance.get_module_for_ifv_and_stack_using_get(
+        api_instance = swagger_client.ModuleManagementApi(ClientUtils.get_client())
+        module_response = api_instance.get_module_for_ifv_and_stack(
             flavor=flavor,
             intent=resource_type,
             stack_name=project_name,
@@ -323,7 +321,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-        stack = api_stack.get_stack_using_get(project_name)
+        stack = api_stack.get_stack(project_name)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
         
         # If dry_run is True, show a preview of changes rather than applying them
@@ -361,11 +359,11 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         else:
             # Create an API instance and update the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            api_instance.update_resources_using_put([resource_request], branch, project_name)
+            api_instance.update_resources([resource_request], project_name, branch)
             
             # Check for errors after the update
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
+            resource_response = dropdown_api.get_resource_by_stack(resource_name, resource_type, project_name)
             
             update_result = {
                 "message": f"Successfully updated resource '{resource_name}' of type '{resource_type}'."
@@ -391,7 +389,6 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             
             import json
             return json.dumps(update_result, indent=2)
-
     except Exception as e:
         error_message = ClientUtils.extract_error_message(e)
         raise McpError(
@@ -453,7 +450,7 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
 
         # Call the API to get module inputs
-        module_inputs = api_instance.get_module_inputs_using_get(flavor, resource_type, project_name)
+        module_inputs = api_instance.get_module_inputs(project_name, resource_type, flavor)
 
         # Format the response for easier consumption
         result = {}
@@ -673,7 +670,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-        stack = api_stack.get_stack_using_get(project_name)
+        stack = api_stack.get_stack(project_name)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
         
         # If dry_run is True, show a preview of the resource rather than creating it
@@ -708,11 +705,11 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         else:
             # Create an API instance and create the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            api_instance.create_resources_using_post([resource_request], branch, project_name)
+            api_instance.create_resources([resource_request], project_name, branch)
             
             # Check for errors after the addition
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack_using_get(resource_name, resource_type, project_name)
+            resource_response = dropdown_api.get_resource_by_stack(resource_name, resource_type, project_name)
             
             add_result = {
                 "message": f"Successfully created resource '{resource_name}' of type '{resource_type}'."
@@ -798,7 +795,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-        stack = api_stack.get_stack_using_get(project_name)
+        stack = api_stack.get_stack(project_name)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
         
         # If dry_run is True, show a preview of the deletion rather than deleting
@@ -830,7 +827,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
         else:
             # Create an API instance and delete the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            api_instance.delete_resources_using_delete([resource_request], branch,  project_name)
+            api_instance.delete_resources([resource_request], branch,  project_name)
             
             return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
@@ -884,8 +881,8 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
     try:
 
         # Call the TF Module API to get the spec
-        api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
-        module_response = api_instance.get_module_for_ifv_and_stack_using_get(
+        api_instance = swagger_client.ModuleManagementApi(ClientUtils.get_client())
+        module_response = api_instance.get_module_for_ifv_and_stack(
             flavor=flavor,
             intent=intent,
             stack_name=project_name,
@@ -949,8 +946,8 @@ def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, A
     try:
 
         # Call the TF Module API to get the module
-        api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
-        module_response = api_instance.get_module_for_ifv_and_stack_using_get(
+        api_instance = swagger_client.ModuleManagementApi(ClientUtils.get_client())
+        module_response = api_instance.get_module_for_ifv_and_stack(
             flavor=flavor,
             intent=intent,
             stack_name=project_name,
@@ -1009,7 +1006,7 @@ def get_output_references(output_type: str) -> List[Dict[str, Any]]:
         api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
         # Call the API to get output references
-        references = api_instance.get_output_references_using_get(output_type, project_name)
+        references = api_instance.get_output_references(output_type, project_name)
 
         # Format the response to make it easier to present to users
         formatted_references = []
@@ -1145,7 +1142,7 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
 
         # Call the API to get autocomplete data
-        autocomplete_data = api_instance.get_autocomplete_data_using_get(project_name)
+        autocomplete_data = api_instance.get_autocomplete_data(project_name)
 
         # Check if outProperties exists and contains data for the specified resource type
         if not autocomplete_data.out_properties:
@@ -1224,10 +1221,10 @@ def list_available_resources() -> List[Dict[str, Any]]:
 
     try:
         # Create an API instance
-        api_instance = swagger_client.UiTfModuleControllerApi(ClientUtils.get_client())
+        api_instance = swagger_client.ModuleManagementApi(ClientUtils.get_client())
 
         # Get grouped modules for the specified project
-        response = api_instance.get_grouped_modules_for_stack_using_get(project_name)
+        response = api_instance.get_grouped_modules_for_stack(project_name)
 
         # Process the response to extract resource information
         result = []

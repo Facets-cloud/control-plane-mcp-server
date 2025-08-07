@@ -51,7 +51,7 @@ def add_or_update_override_property(resource_type: str, resource_name: str, prop
     try:
         # Get current overrides
         try:
-            current_override_obj = api_instance.get_resource_override_object_using_get(
+            current_override_obj = api_instance.get_resource_override_object(
                 cluster_id=cluster_id,
                 resource_name=resource_name,
                 resource_type=resource_type
@@ -77,7 +77,7 @@ def add_or_update_override_property(resource_type: str, resource_name: str, prop
         override_request.overrides = current_overrides
         
         # Apply the updated overrides
-        result = api_instance.post_resource_override_object_using_post(
+        result = api_instance.post_resource_override_object(
             body=override_request,
             cluster_id=cluster_id,
             resource_name=resource_name,
@@ -143,7 +143,7 @@ def remove_override_property(resource_type: str, resource_name: str, property_pa
     try:
         # Get current overrides
         try:
-            current_override_obj = api_instance.get_resource_override_object_using_get(
+            current_override_obj = api_instance.get_resource_override_object(
                 cluster_id=cluster_id,
                 resource_name=resource_name,
                 resource_type=resource_type
@@ -194,7 +194,7 @@ def remove_override_property(resource_type: str, resource_name: str, property_pa
             override_request.overrides = {}
         
         # Apply the updated overrides
-        result = api_instance.post_resource_override_object_using_post(
+        result = api_instance.post_resource_override_object(
             body=override_request,
             cluster_id=cluster_id,
             resource_name=resource_name,
@@ -267,7 +267,7 @@ def replace_all_overrides(resource_type: str, resource_name: str, override_data:
         override_request.overrides = override_data
         
         # Call the API to apply the override
-        result = api_instance.post_resource_override_object_using_post(
+        result = api_instance.post_resource_override_object(
             body=override_request,
             cluster_id=cluster_id,
             resource_name=resource_name,
@@ -333,7 +333,7 @@ def clear_all_overrides(resource_type: str, resource_name: str) -> Dict[str, Any
         override_request.overrides = {}
         
         # Call the API to clear all overrides
-        result = api_instance.post_resource_override_object_using_post(
+        result = api_instance.post_resource_override_object(
             body=override_request,
             cluster_id=cluster_id,
             resource_name=resource_name,
@@ -396,7 +396,7 @@ def preview_override_effect(resource_type: str, resource_name: str, property_pat
     
     try:
         # Get the current resource configuration
-        resource = dropdown_api.get_resource_by_cluster_id_using_get(
+        resource = dropdown_api.get_resource_by_cluster_id(
             cluster_id=cluster_id,
             resource_name=resource_name,
             resource_type=resource_type,
@@ -409,7 +409,7 @@ def preview_override_effect(resource_type: str, resource_name: str, property_pat
         # Get current overrides
         current_overrides = {}
         try:
-            current_override_obj = override_api.get_resource_override_object_using_get(
+            current_override_obj = override_api.get_resource_override_object(
                 cluster_id=cluster_id,
                 resource_name=resource_name,
                 resource_type=resource_type

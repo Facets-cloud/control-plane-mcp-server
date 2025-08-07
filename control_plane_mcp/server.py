@@ -20,7 +20,7 @@ def _test_login() -> bool:
     """
     try:
         api_instance = swagger_client.ApplicationControllerApi(ClientUtils.get_client())
-        api_instance.me_using_get()
+        api_instance.me()
         return True
     except Exception as e:
         print(f"Login test failed: {e}")
