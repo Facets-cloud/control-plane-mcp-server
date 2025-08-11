@@ -35,7 +35,7 @@ def create_variable(name: str, variable: VariablesModel) -> None:
     variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.add_variables_using_post(current_project.name, {name: variable_swagger_instance})
+    result = api_instance.add_variables(current_project.name, {name: variable_swagger_instance})
     ClientUtils.refresh_current_project_and_cache()
     return result
 
@@ -66,7 +66,7 @@ def update_variable(name: str, variable: VariablesModel) -> None:
     variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.update_variables_using_put(current_project.name, {name: variable_swagger_instance})
+    result = api_instance.update_variables(current_project.name, {name: variable_swagger_instance})
     ClientUtils.refresh_current_project_and_cache()
 
     return result
@@ -105,7 +105,7 @@ def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
         )
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.delete_variables_using_delete(current_project.name, [name])
+    result = api_instance.delete_variables(current_project.name, [name])
     ClientUtils.refresh_current_project_and_cache()
 
     return result
@@ -123,7 +123,7 @@ def get_all_projects() -> str:
         str: List of all projects
     """
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-    stacks = api_instance.get_stacks_using_get1()
+    stacks = api_instance.get_stacks()
     # Extract just the stack names and return them as a formatted string
     stack_names = [stack.name for stack in stacks]
     return "\n".join(stack_names) if stack_names else "No projects found"
@@ -139,7 +139,7 @@ def use_project(project_name: str):
     """
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
     try:
-        project = api_instance.get_stack_using_get(project_name)
+        project = api_instance.get_stack(project_name)
         ClientUtils.set_current_project(project)
         return f"Current project set to {project.name}"
     except Exception as e:
@@ -173,7 +173,7 @@ def refresh_current_project():
 
     curr_project = ClientUtils.get_current_project()
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-    refreshed_project = api_instance.get_stack_using_get(curr_project.name)
+    refreshed_project = api_instance.get_stack(curr_project.name)
     ClientUtils.set_current_project(refreshed_project)
     return refreshed_project
 
@@ -221,7 +221,7 @@ def get_project_details(project_name: str):
          availability and details.
     """
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-    project_details = api_instance.get_stack_using_get(project_name)
+    project_details = api_instance.get_stack(project_name)
 
     if not project_details:
         raise McpError(

@@ -79,7 +79,7 @@ def get_releases_of_current_environment() -> ListDeploymentsWrapper:
         )
     
     api_instance = swagger_client.UiDeploymentControllerApi(ClientUtils.get_client())
-    deployments = api_instance.get_deployments_using_get1(ClientUtils.get_current_cluster().id)
+    deployments = api_instance.get_deployments(ClientUtils.get_current_cluster().id)
 
     return deployments
 
@@ -105,7 +105,7 @@ def get_release_details(release_id: str) -> DeploymentLog:
         )
     
     api_instance = swagger_client.UiDeploymentControllerApi(ClientUtils.get_client())
-    release = api_instance.get_deployment_using_get(ClientUtils.get_current_cluster().id, release_id)
+    release = api_instance.get_deployment(ClientUtils.get_current_cluster().id, release_id)
     return release
 
 # @mcp.tool()
@@ -130,7 +130,7 @@ def get_release_logs_of_current_environment(release_id: str) -> List[DeploymentL
         )
     
     api_instance = swagger_client.UiDeploymentControllerApi(ClientUtils.get_client())
-    release_logs = api_instance.get_deployment_logs_using_get(ClientUtils.get_current_cluster().id, release_id)
+    release_logs = api_instance.get_deployment_logs(ClientUtils.get_current_cluster().id, release_id)
     return release_logs
 
 # @mcp.tool()
@@ -246,7 +246,7 @@ def create_release_for_current_environment(properties: DeploymentRequestModel) -
     if hasattr(properties, 'with_refresh') and properties.with_refresh is not None:
         swagger_request.with_refresh = properties.with_refresh
     
-    deployment = api_instance.create_deployment_using_post(ClientUtils.get_current_cluster().id, swagger_request)
+    deployment = api_instance.create_deployment(ClientUtils.get_current_cluster().id, swagger_request)
     return deployment.id
 
 # @mcp.tool()

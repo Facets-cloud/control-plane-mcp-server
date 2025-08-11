@@ -43,7 +43,7 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
     
     try:
         # Call the API to get all resources for the environment
-        resources = api_instance.get_all_resources_by_cluster_using_get(
+        resources = api_instance.get_all_resources_by_cluster(
             cluster_id=cluster_id,
             include_content=False
         )
@@ -133,7 +133,7 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
     
     try:
         # Call the API directly with resource name, type, and cluster id
-        resource = api_instance.get_resource_by_cluster_id_using_get(
+        resource = api_instance.get_resource_by_cluster_id(
             cluster_id=cluster_id,
             resource_name=resource_name,
             resource_type=resource_type,
