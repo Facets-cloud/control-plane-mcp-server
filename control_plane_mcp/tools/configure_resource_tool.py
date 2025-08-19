@@ -103,7 +103,7 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
     try:
 
         # Call the API directly with resource name, type, and project name
-        resource = api_instance.get_resource_by_stack(project_name, resource_type, resource_name)
+        resource = api_instance.get_resource_by_stack(resource_name, resource_type, project_name)
 
         # Format the response
         resource_data = {
@@ -366,7 +366,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             
             # Check for errors after the update
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack(project_name, resource_type, resource_name)
+            resource_response = dropdown_api.get_resource_by_stack(resource_name, resource_type, project_name)
             
             update_result = {
                 "message": f"Successfully updated resource '{resource_name}' of type '{resource_type}'."
@@ -712,7 +712,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             
             # Check for errors after the addition
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack(project_name, resource_type, resource_name)
+            resource_response = dropdown_api.get_resource_by_stack(resource_name, resource_type, project_name)
             
             add_result = {
                 "message": f"Successfully created resource '{resource_name}' of type '{resource_type}'."
@@ -850,13 +850,15 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
     """
     Get specification details for a module based on intent, flavor, and version.
     
-    Returns the full module metadata for the selected module (intent/flavor/version), not just the spec.
-    The response includes fields like id, intent, flavor, version, display_name, description,
-    spec (JSON schema, parsed to object if it is a JSON string), sample_json (parsed if JSON),
-    and other metadata provided by the control-plane API.
+    This returns the schema that defines valid fields, allowed values, and validation rules
+    ONLY for the "spec" part of the resource JSON. A complete resource JSON has other fields 
+    such as kind, metadata, flavor, version, etc., which are not covered by this schema.
     
-    Previously this tool returned only the "spec" schema. It now returns the complete payload.
-    If you only need the schema, extract response["spec"].
+    These other fields can be understood from the sample returned by get_sample_for_module(),
+    which shows all required fields including those outside the "spec" section.
+    
+    Use this spec before creating or updating resources to understand the available 
+    configuration options and requirements for the "spec" section specifically.
         
     Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref, x-ui-output-type),
     call explain_ui_annotation() with the annotation name to understand how to handle them properly.
@@ -867,7 +869,7 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
         version: The version of the resource
         
     Returns:
-        Full module metadata as a dictionary (including 'spec' and other fields). Extract response["spec"] if schema-only is needed.
+        A schema specification that describes valid fields and values for the "spec" section of this resource type
     """
     # Get current project
     current_project = ClientUtils.get_current_project()
@@ -891,9 +893,8 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
             version=version
         )
 
-        # Build and return full module metadata (not just spec)
-        # Ensure at least spec exists
-        if not getattr(module_response, 'spec', None):
+        # Extract and parse the spec from the response
+        if not module_response.spec:
             raise McpError(
                 ErrorData(
                     code=INVALID_REQUEST,
@@ -901,29 +902,8 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
                 )
             )
 
-        # Convert to a dictionary (swagger models provide to_dict)
-        full_meta = module_response.to_dict() if hasattr(module_response, 'to_dict') else {}
-
-        # If conversion failed, fall back to returning just spec
-        if not full_meta:
-            try:
-                return {"spec": json.loads(module_response.spec)}
-            except Exception:
-                return {"spec": module_response.spec}
-
-        # Parse JSON-string fields for convenience
-        try:
-            if isinstance(full_meta.get('spec'), str):
-                full_meta['spec'] = json.loads(full_meta['spec'])
-        except Exception:
-            pass
-        try:
-            if isinstance(full_meta.get('sample_json'), str):
-                full_meta['sample_json'] = json.loads(full_meta['sample_json'])
-        except Exception:
-            pass
-
-        return full_meta
+        # Return the spec as a JSON object
+        return json.loads(module_response.spec)
 
     except Exception as e:
         error_message = ClientUtils.extract_error_message(e)
