@@ -1,6 +1,7 @@
 from ..utils.client_utils import ClientUtils
+from ..utils.client_utils import ClientUtils
 import swagger_client
-from swagger_client.models import ResourceFileRequest
+from swagger_client.models import ResourceFileRequest, UpdateBlueprintRequest
 from typing import List, Dict, Any
 import json
 from ..utils.validation_utils import validate_resource
@@ -360,7 +361,8 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         else:
             # Create an API instance and update the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            api_instance.update_resources([resource_request], project_name, branch)
+            update_request = UpdateBlueprintRequest(files=[resource_request])
+            api_instance.update_resources(update_request, project_name, branch)
             
             # Check for errors after the update
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
@@ -829,7 +831,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
         else:
             # Create an API instance and delete the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            api_instance.delete_resources([resource_request], branch,  project_name)
+            api_instance.delete_resources([resource_request], project_name, branch)
             
             return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
@@ -1028,7 +1030,7 @@ def get_output_references(output_type: str) -> List[Dict[str, Any]]:
         api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
         # Call the API to get output references
-        references = api_instance.get_output_references(output_type, project_name)
+        references = api_instance.get_output_references(project_name, output_type)
 
         # Format the response to make it easier to present to users
         formatted_references = []

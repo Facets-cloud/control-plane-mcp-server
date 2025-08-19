@@ -35,7 +35,7 @@ def create_variable(name: str, variable: VariablesModel) -> None:
     variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.add_variables(current_project.name, {name: variable_swagger_instance})
+    result = api_instance.add_variables({name: variable_swagger_instance}, current_project.name)
     ClientUtils.refresh_current_project_and_cache()
     return result
 
@@ -66,7 +66,7 @@ def update_variable(name: str, variable: VariablesModel) -> None:
     variable_swagger_instance = ClientUtils.pydantic_instance_to_swagger_instance(variable, Variables)
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.update_variables(current_project.name, {name: variable_swagger_instance})
+    result = api_instance.update_variables({name: variable_swagger_instance}, current_project.name)
     ClientUtils.refresh_current_project_and_cache()
 
     return result
@@ -105,7 +105,7 @@ def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
         )
 
     api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-    result = api_instance.delete_variables(current_project.name, [name])
+    result = api_instance.delete_variables([name], current_project.name)
     ClientUtils.refresh_current_project_and_cache()
 
     return result

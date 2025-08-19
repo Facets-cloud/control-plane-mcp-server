@@ -13,7 +13,7 @@ authors = [
 dependencies = [
     "mcp[cli]>=1.6.0",
     "httpx>=0.25.0",
-    "facets-control-plane-sdk==1.0.2",
+    "facets-control-plane-sdk==1.0.3",
     "pydantic~=2.11.2",
     "jsonschema~=4.23.0",
 ]
