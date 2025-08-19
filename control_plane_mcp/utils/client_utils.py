@@ -167,7 +167,7 @@ class ClientUtils:
             raise ValueError("No current project is set.")
 
         api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-        refreshed_project = api_instance.get_stack_using_get(curr_project.name)
+        refreshed_project = api_instance.get_stack(curr_project.name)
         ClientUtils.set_current_project(refreshed_project)
 
     @staticmethod
