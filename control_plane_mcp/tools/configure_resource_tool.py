@@ -296,12 +296,13 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
         current_content = current_resource.get("content", {})
         
         # Create a ResourceFileRequest instance with the updated content
-        resource_request = ResourceFileRequest()
-        resource_request.content = content
-        resource_request.directory = current_resource.get("directory")
-        resource_request.filename = current_resource.get("filename")
-        resource_request.resource_name = resource_name
-        resource_request.resource_type = resource_type
+        resource_request = ResourceFileRequest(
+            resource_name=resource_name,
+            resource_type=resource_type,
+            content=content,
+            directory=current_resource.get("directory"),
+            filename=current_resource.get("filename")
+        )
 
         # validate the resource content with spec schema
         resource_data = {
@@ -616,7 +617,12 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
                 )
 
         # Create a ResourceFileRequest instance with the resource details
-        resource_request = ResourceFileRequest()
+        resource_request = ResourceFileRequest(
+            resource_name=resource_name,
+            resource_type=resource_type,
+            content=content,
+            flavor=flavor
+        )
 
         # If inputs are provided, add them to the content dictionary
         if inputs:
@@ -645,11 +651,6 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             # Add the inputs to the content dictionary
             content["inputs"] = formatted_inputs
 
-        resource_request.content = content
-        resource_request.resource_name = resource_name
-        resource_request.resource_type = resource_type
-        resource_request.flavor = flavor
-        resource_request.version = version
         # Directory and filename will be determined by the server
 
         # validate the resource content with spec schema
@@ -787,11 +788,12 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
         # First, get the current resource to obtain metadata
         current_resource = get_resource_by_project(resource_type, resource_name)
 
-        resource_request = ResourceFileRequest()
-        resource_request.directory = current_resource.get("directory")
-        resource_request.filename = current_resource.get("filename")
-        resource_request.resource_name = resource_name
-        resource_request.resource_type = resource_type
+        resource_request = ResourceFileRequest(
+            resource_name=resource_name,
+            resource_type=resource_type,
+            directory=current_resource.get("directory"),
+            filename=current_resource.get("filename")
+        )
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
