@@ -103,7 +103,7 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
     try:
 
         # Call the API directly with resource name, type, and project name
-        resource = api_instance.get_resource_by_stack(resource_name, resource_type, project_name)
+        resource = api_instance.get_resource_by_stack(project_name, resource_type, resource_name)
 
         # Format the response
         resource_data = {
@@ -366,7 +366,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             
             # Check for errors after the update
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack(resource_name, resource_type, project_name)
+            resource_response = dropdown_api.get_resource_by_stack(project_name, resource_type, resource_name)
             
             update_result = {
                 "message": f"Successfully updated resource '{resource_name}' of type '{resource_type}'."
@@ -712,7 +712,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             
             # Check for errors after the addition
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack(resource_name, resource_type, project_name)
+            resource_response = dropdown_api.get_resource_by_stack(project_name, resource_type, resource_name)
             
             add_result = {
                 "message": f"Successfully created resource '{resource_name}' of type '{resource_type}'."
