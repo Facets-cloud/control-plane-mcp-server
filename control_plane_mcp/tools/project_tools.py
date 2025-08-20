@@ -36,14 +36,13 @@ Most tools will fail without proper context - project context is foundational fo
 
 from ..pydantic_generated.variablesmodel import VariablesModel
 from ..utils.client_utils import ClientUtils
+from ..config import mcp
 import swagger_client
 from swagger_client.models import Variables, VariableRequest
 from swagger_client.api.variable_management_api import VariableManagementApi
 from typing import List, Dict
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
-
-mcp = ClientUtils.get_mcp_instance()
 
 
 @mcp.tool()

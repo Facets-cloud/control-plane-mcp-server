@@ -1,5 +1,4 @@
 import swagger_client
-from mcp.server.fastmcp import FastMCP
 from swagger_client.models.stack import Stack
 from swagger_client.models.abstract_cluster import AbstractCluster
 import os
@@ -14,8 +13,6 @@ class ClientUtils:
     token = None
     _current_project: Stack = None  # Use a private variable for the current project
     _current_environment: AbstractCluster = None
-    mcp = None
-    initialized = False
 
     @staticmethod
     def set_client_config(url: str, user: str, tok: str):
@@ -33,14 +30,6 @@ class ClientUtils:
         configuration.password = ClientUtils.token
         configuration.host = ClientUtils.cp_url
         return swagger_client.ApiClient(configuration)
-
-    @staticmethod
-    def get_mcp_instance():
-        if not ClientUtils.initialized:
-            cp_url, username, token, profile = ClientUtils.initialize()
-            ClientUtils.mcp = FastMCP(f"FacetCPGenie for {cp_url}")
-            ClientUtils.initialized = True
-        return ClientUtils.mcp
 
     @staticmethod
     def initialize():

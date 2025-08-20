@@ -1,13 +1,11 @@
 from typing import List
 import swagger_client
-import mcp
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
 from swagger_client.models.abstract_cluster import AbstractCluster
 from ..utils.client_utils import ClientUtils
 from ..pydantic_generated.abstractclustermodel import AbstractClusterModel
-
-mcp = ClientUtils.get_mcp_instance()
+from ..config import mcp
 
 def _convert_swagger_environment_to_pydantic(swagger_environment) -> AbstractClusterModel:
     """

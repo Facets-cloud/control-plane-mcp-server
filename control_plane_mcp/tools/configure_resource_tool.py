@@ -41,7 +41,7 @@ and patterns the organization has designed for their infrastructure abstractions
 """
 
 from ..utils.client_utils import ClientUtils
-from ..utils.client_utils import ClientUtils
+from ..config import mcp
 import swagger_client
 from swagger_client.models import ResourceFileRequest, UpdateBlueprintRequest
 from typing import List, Dict, Any
@@ -49,8 +49,6 @@ import json
 from ..utils.validation_utils import validate_resource, validate_resource_with_public_schema, get_schema_validation_summary
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
-
-mcp = ClientUtils.get_mcp_instance()
 
 
 @mcp.tool()
