@@ -1,6 +1,7 @@
 from ..utils.client_utils import ClientUtils
 from ..utils.dict_utils import deep_merge
 from ..utils.override_utils import get_nested_property, set_nested_property, remove_nested_property
+from ..config import mcp
 import swagger_client
 from swagger_client.models import OverrideRequest
 from typing import Dict, Any, Optional, Union
@@ -8,8 +9,6 @@ import json
 import copy
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
-
-mcp = ClientUtils.get_mcp_instance()
 
 
 @mcp.tool()

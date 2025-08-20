@@ -1,6 +1,5 @@
 from typing import List
 import swagger_client
-import mcp
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
 from swagger_client.models.list_deployments_wrapper import ListDeploymentsWrapper
@@ -8,9 +7,8 @@ from swagger_client.models.deployment_log import DeploymentLog
 from swagger_client.models.deployment_request import DeploymentRequest
 from ..utils.client_utils import ClientUtils
 from ..pydantic_generated.deploymentrequestmodel import DeploymentRequestModel
+from ..config import mcp
 from .env_tools import get_current_environment_details
-
-mcp = ClientUtils.get_mcp_instance()
 
 def _convert_pydantic_request_to_swagger(pydantic_request: DeploymentRequestModel) -> DeploymentRequest:
     """

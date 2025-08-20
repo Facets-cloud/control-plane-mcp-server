@@ -1,7 +1,5 @@
 import os
-from ..utils.client_utils import ClientUtils
-
-mcp = ClientUtils.get_mcp_instance()
+from ..config import mcp
 
 
 def _get_resource_management_guide_content() -> str:

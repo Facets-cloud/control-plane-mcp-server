@@ -11,11 +11,15 @@ authors = [
     { name = "Anuj Hydrabadi", email = "anuj.hydrabadi@facets.cloud" },
 ]
 dependencies = [
-    "mcp[cli]>=1.6.0",
+    "mcp[cli]>=1.13.0",
     "httpx>=0.25.0",
     "facets-control-plane-sdk==1.0.3",
     "pydantic~=2.11.2",
     "jsonschema~=4.23.0",
+    "click>=8.2.1,<9.0.0",       # CLI argument parsing
+    "uvicorn>=0.35.0,<1.0.0",    # ASGI server for streamable-http transport
+    "starlette>=0.47.2,<1.0.0",  # Web framework (required for streamable-http)
+    "python-dotenv>=1.1.1,<2.0.0",  # Environment variable loading
 ]
 requires-python = ">=3.12"
 keywords = ["Facets", "MCP", "Control Plane", "Python"]
