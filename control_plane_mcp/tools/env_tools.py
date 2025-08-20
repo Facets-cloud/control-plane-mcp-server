@@ -62,18 +62,55 @@ def _convert_swagger_environment_to_pydantic(swagger_environment) -> AbstractClu
 @mcp.tool()
 def get_all_environments() -> List[AbstractClusterModel]:
     """
-    Get all environments in the current project. 🌐 
-    This function retrieves all environments that are available in the currently selected project. 📋 
-    It provides a comprehensive list of all environments you can work with. ✨
+    Get all environments (clusters) available in the current project.
     
-    Inputs:
-        None
-        
+    **Purpose & Context:**
+    Environments represent deployment targets where your resources run (e.g., dev, staging, 
+    production). Each environment typically corresponds to a separate cluster or cloud account.
+    This function discovers what environments are available for deploying and managing resources.
+    
+    **Prerequisites:**
+    - Current project must be set (use `use_project()` first)
+    
+    **Usage Patterns:**
+    - **Environment Discovery**: "Where can I deploy my resources?"
+    - **Multi-Environment Management**: Understanding all deployment targets
+    - **Environment Selection**: Before setting environment context
+    - **Infrastructure Overview**: Seeing the full deployment landscape
+    
+    **Data Structure:**
+    Each environment contains:
+    - `name`: Environment identifier (e.g., "dev", "staging", "production")
+    - `id`: Unique cluster/environment ID
+    - `cloud_provider`: AWS, GCP, Azure, etc.
+    - `region`: Geographic location
+    - `status`: Health and availability status
+    
+    **LLM-Friendly Tags:** [FOUNDATIONAL] [DISCOVERY] [READ-ONLY] [MULTI-ENVIRONMENT]
+
     Returns:
-        List[str]: A list of environment names in the current project.
+        List[AbstractClusterModel]: List of all environments with their configuration details
         
-    Raises:
-        ValueError: If no current project is set.
+    **Workflow Integration:**
+    1. `use_project()` - Set project context first
+    2. `get_all_environments()` ← **You are here** (Discover environments)
+    3. `use_environment()` - Select specific environment to work with
+    4. **Now enabled:** Environment-specific resource and override operations
+    
+    **Common Next Steps:**
+    - Choose an environment from the results
+    - Call `use_environment()` to set environment context
+    - Use environment-specific tools for resource management
+    
+    **Pro Tips for LLMs:**
+    - Group environments by purpose (dev, staging, prod) 
+    - Recommend starting with dev/staging for testing
+    - Consider environment dependencies (e.g., promote changes dev → staging → prod)
+    
+    **See Also:**
+    - `use_environment()` - Set environment context for operations
+    - `get_current_environment_details()` - Get details of selected environment
+    - `use_project()` - Set project context first
     """
     project = ClientUtils.get_current_project()
     if not project:
@@ -95,20 +132,65 @@ def get_all_environments() -> List[AbstractClusterModel]:
 @mcp.tool()
 def use_environment(environment_name: str):
     """
-    Set the current environment in the utils configuration. 🔧 This allows you to work with a specific environment. 🌐 
-    The environment must exist in the current project. 📋
+    Set the current working environment (cluster) for all subsequent environment-specific operations.
+    
+    **Purpose & Context:**
+    This is a **CRITICAL ENVIRONMENT-CONTEXT** function that establishes which deployment target
+    (dev, staging, production) you want to work with. Many advanced operations require both project
+    AND environment context to be set. Think of this as selecting which cluster/environment to
+    "connect to" for operations.
+    
+    **Prerequisites:**
+    - Current project must be set (use `use_project()` first)
+    - Environment must exist in the current project (use `get_all_environments()` to verify)
+    
+    **Usage Patterns:**
+    - **Environment-Specific Operations**: Before viewing or modifying environment resources
+    - **Multi-Environment Management**: Switching between dev, staging, production
+    - **Override Configuration**: Setting environment-specific variable values
+    - **Deployment Operations**: Targeting specific environments for releases
+    
+    **Critical Impact:**
+    ⚠️ This function affects the context for environment-aware operations:
+    - Environment resource queries will target this environment
+    - Override operations will affect this environment's configuration
+    - Variable environment updates will modify this environment's values
+    - Deployment operations will target this environment
+    
+    **LLM-Friendly Tags:** [CRITICAL] [CONTEXT-SETTER] [ENVIRONMENT-AWARE] [MULTI-ENVIRONMENT]
 
     Args:
-        environment_name (str): The name of the environment to set as current.
+        environment_name: Exact name of the environment to set as current context
 
     Returns:
-        str: A message indicating that the environment has been set.
+        str: Confirmation message with the environment name
+        
+    **Workflow Integration:**
+    1. `use_project()` - Set project context first
+    2. `get_all_environments()` - Discover available environments (optional)
+    3. `use_environment(name)` ← **You are here**
+    4. **Now enabled:** Environment-specific resource and override operations
     
-    Raises:
-        ValueError: If no current project is set or if the environment is not found in the project.
+    **Common Next Steps After Setting Environment:**
+    - `get_all_resources_by_environment()` - See what's deployed in this environment
+    - `update_variable_environment_value()` - Set environment-specific config values
+    - Environment override operations for resource customization
+    
+    **Example Workflow:**
+    ```
+    use_project("my-app")
+    use_environment("production")
+    # Now can perform production-specific operations
+    ```
 
-    example:
-        use_environment("environment-name")
+    Raises:
+        McpError: If no current project is set or environment doesn't exist in project
+        
+    **See Also:**
+    - `get_all_environments()` - Discover available environments first
+    - `get_current_environment_details()` - Get details of selected environment
+    - `use_project()` - Set project context first (required)
+    - Environment-specific resource and override tools
     """
     project = ClientUtils.get_current_project()
     if not project:

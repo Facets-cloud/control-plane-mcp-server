@@ -23,7 +23,6 @@ def _test_login() -> bool:
         api_instance.me()
         return True
     except Exception as e:
-        print(f"Login test failed: {e}")
         return False
 
 
@@ -32,9 +31,7 @@ def main():
     mcp = ClientUtils.get_mcp_instance()
     if _test_login():
         mcp.run(transport="stdio")
-        print("🚀 MCP Server is running")
     else:
-        print("❌ Login test failed. Server not started.")
         exit(1)
 
 
