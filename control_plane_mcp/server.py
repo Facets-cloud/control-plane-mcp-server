@@ -100,11 +100,11 @@ def main(
         ClientUtils.initialize()
         # Test authentication
         if not _test_login():
-            logger.warning("Authentication failed. Server will start but API calls may fail.")
-            # Don't exit - allow server to start for testing/development
+            logger.error("Authentication failed.")
+            exit(1)
     except Exception as e:
         logger.warning(f"Failed to initialize client configuration: {e}")
-        logger.warning("Server will start but API calls will fail without credentials.")
+        exit(1)
     
     # Log startup information
     if transport == 'streamable-http':
