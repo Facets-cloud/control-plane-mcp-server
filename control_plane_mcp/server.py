@@ -103,7 +103,7 @@ def main(
             logger.error("Authentication failed.")
             exit(1)
     except Exception as e:
-        logger.warning(f"Failed to initialize client configuration: {e}")
+        logger.error(f"Failed to initialize client configuration: {e}")
         exit(1)
     
     # Log startup information
