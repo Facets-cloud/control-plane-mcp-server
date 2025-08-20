@@ -1,10 +1,52 @@
+"""
+RESOURCE CONFIGURATION TOOLS
+
+Tools for discovering, creating, and managing infrastructure resources in Facets projects.
+Resources use organization-specific abstractions rather than standard cloud provider formats.
+
+**Critical Schema Understanding:**
+Facets resources have custom schemas that abstract complex infrastructure into simplified,
+organization-defined patterns. Each resource type (postgres, service, redis) has unique property
+names, validation rules, and special annotations. Never assume standard property names like "host"
+or "port" - the organization may use "database_endpoint" or "connection_config" instead.
+
+**Essential Workflow Context:**
+1. **Discovery**: Use `list_available_resources()` to find available resource types and flavors
+2. **Schema Analysis**: Use `get_resource_schema_public()` to understand actual property names and requirements
+3. **Template Review**: Use `get_sample_for_module()` to see schema structure in practice
+4. **Dependency Check**: Use `get_module_inputs()` to understand resource dependencies
+5. **Safe Creation**: Use `add_resource(dry_run=True)` to preview, then `dry_run=False` after user confirmation
+
+**Key Technical Concepts:**
+- Resources have unique schemas per organization (not standard K8s/AWS formats)
+- `properties` field defines available configuration options with types and constraints
+- `required` field lists mandatory properties that must be provided
+- `x-ui-*` annotations define special behaviors (secret references, output connections)
+- Templates show working examples of the organization's specific patterns
+- Dependencies between resources are handled through input/output connections
+- Safety patterns (dry_run) allow preview before making destructive changes
+
+**Enhanced Schema Validation:**
+Resource creation and updates now use strict JSON schema validation against the complete organization
+schema from `get_resource_schema_public()`. This ensures configurations match exact organizational
+requirements including property types, constraints, required fields, and special annotations.
+
+**Reference Patterns:**
+- Variables: `${blueprint.self.variables.my_var}` 
+- Secrets: `${blueprint.self.secrets.my_secret}`
+- Resource outputs: `${blueprint.resource_name.outputs.connection_string}`
+
+Schema exploration is essential - it reveals the actual property names, types, validation rules,
+and patterns the organization has designed for their infrastructure abstractions.
+"""
+
 from ..utils.client_utils import ClientUtils
 from ..utils.client_utils import ClientUtils
 import swagger_client
 from swagger_client.models import ResourceFileRequest, UpdateBlueprintRequest
 from typing import List, Dict, Any
 import json
-from ..utils.validation_utils import validate_resource
+from ..utils.validation_utils import validate_resource, validate_resource_with_public_schema, get_schema_validation_summary
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
 
@@ -251,33 +293,40 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
 @mcp.tool()
 def update_resource(resource_type: str, resource_name: str, content: Dict[str, Any], dry_run: bool = True) -> str:
     """
-    Update a specific resource in the current project.
+    Update a specific resource in the current project with strict schema validation.
     
     IMPORTANT: This is a potentially irreversible operation that modifies resources.
     Always run with `dry_run=True` first to preview changes before committing them.
     
-    Steps for safe resource updates:
-    1. Always run with `dry_run=True` first to preview changes.
-    2. Review the differences between current and proposed configuration.
-    3. ASK THE USER EXPLICITLY if they want to proceed with these changes.
-    4. Only if user confirms, run again with `dry_run=False` to commit changes.
+    **Enhanced Schema Validation:**
+    This function now performs comprehensive validation using the organization's complete schema
+    from `get_resource_schema_public()` to ensure the updated configuration matches exact requirements
+    including all properties, types, constraints, and special annotations.
+    
+    **Safe Update Workflow:**
+    1. **Preview Changes**: Always run with `dry_run=True` first
+    2. **Review Diff**: Examine the differences between current and proposed configuration
+    3. **User Confirmation**: ASK THE USER EXPLICITLY if they want to proceed
+    4. **Apply Changes**: Only if user confirms, run again with `dry_run=False`
 
-    Before using this tool, it's recommended to first call get_spec_for_resource() to
-    understand the valid fields and values for this resource type. The content provided
-    must conform to the specification schema for the update to succeed.
+    **Schema-Driven Updates:**
+    Before updating, it's recommended to:
+    - Use `get_resource_by_project()` to see current configuration
+    - Use `get_resource_schema_public()` to understand valid properties and constraints
+    - Ensure your updates conform to the organization's schema requirements
 
     Args:
         resource_type: The type of resource to update (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource to update
-        content: The updated content for the resource as a dictionary. This must conform
-                to the schema returned by get_spec_for_resource().
+        content: The updated content for the resource as a dictionary. Must conform
+                to the organization's schema with all required fields and valid values.
         dry_run: If True, only preview changes without making them. Default is True.
 
     Returns:
-        Preview of changes (if dry_run=True) or confirmation of update (if dry_run=False)
+        Preview of changes with diff (if dry_run=True) or confirmation of update (if dry_run=False)
 
     Raises:
-        ValueError: If the resource doesn't exist, update fails, or content doesn't match the required schema
+        McpError: If the resource doesn't exist, validation fails, or update fails
     """
     # Get current project
     current_project = ClientUtils.get_current_project()
@@ -305,21 +354,51 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             filename=current_resource.get("filename")
         )
 
-        # validate the resource content with spec schema
-        resource_data = {
-            "name": resource_name,
-            "type": resource_type,
-            "content": content
-        }
-
-        # get the spec schema for the resource. if no spec exists, set as empty dict {}
-        try:
-            resource_spec_schema = get_spec_for_resource(resource_type, resource_name)
-        except:
-            resource_spec_schema = {}
+        # Validate the updated content against the organization's complete schema
+        # Get resource metadata to determine flavor and version for schema validation
+        current_resource_content = current_resource.get("content", {})
+        flavor = current_resource_content.get("flavor")
+        version = current_resource_content.get("version")
         
-        # validate the resource data configuration with the spec schema. validation error will be automatically raised if validation fails
-        validate_resource(resource_data, resource_spec_schema)
+        if flavor and version:
+            try:
+                # Get the complete schema from the public API 
+                schema_response = get_resource_schema_public(resource_type, flavor, version)
+                
+                # Perform strict JSON schema validation using the organization's schema
+                validate_resource_with_public_schema(content, schema_response)
+                
+            except Exception as schema_error:
+                # Provide helpful error message with schema context
+                error_message = str(schema_error)
+                
+                # Try to get schema summary for debugging context
+                try:
+                    schema_response = get_resource_schema_public(resource_type, flavor, version)
+                    schema_summary = get_schema_validation_summary(schema_response)
+                    error_message += f"\n\nSchema Requirements:\n{schema_summary}"
+                except:
+                    pass  # Schema summary is helpful but not critical
+                
+                raise McpError(
+                    ErrorData(
+                        code=INVALID_REQUEST,
+                        message=f"Resource update validation failed: {error_message}"
+                    )
+                )
+        else:
+            # Fallback to basic validation if flavor/version cannot be determined
+            resource_data = {
+                "name": resource_name,
+                "type": resource_type,
+                "content": content
+            }
+            try:
+                resource_spec_schema = get_spec_for_resource(resource_type, resource_name)
+            except:
+                resource_spec_schema = {}
+            
+            validate_resource(resource_data, resource_spec_schema)
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
@@ -505,30 +584,36 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
     3. ASK THE USER EXPLICITLY if they want to proceed with creating this resource.
     4. Only if user confirms, run again with `dry_run=False` to create the resource.
 
-    This function creates a new resource in the current project. It's critical to follow the
-    complete resource creation workflow to ensure all required inputs are provided.
+    This function creates a new resource in the current project. It uses strict JSON schema validation
+    against the organization's complete schema to ensure proper configuration.
     
-    IMPORTANT: Before calling this tool, you MUST call get_module_inputs() to check what inputs
-    are required for the resource you want to create. If there are non-optional inputs with compatible
-    resources, you must ASK THE USER to select one for each input and provide them in the 'inputs' parameter.
-    Never select resources for inputs automatically, unless there is just one - always ask the user for their preference.
+    **Schema Validation Enhancement:**
+    This function now performs comprehensive validation using `get_resource_schema_public()` to ensure
+    the resource configuration matches the organization's exact schema requirements including all
+    properties, types, constraints, and special annotations.
     
-    Step-by-step resource creation flow:
-    1. Call list_available_resources() to see available resources
-    2. From the results, select a resource_type/intent (e.g., 'service', 'postgres') and note the flavor and version
-    3. Call get_module_inputs(resource_type, flavor) to check required inputs and compatible resources
+    **Essential Prerequisites:**
+    1. **Schema Understanding**: Use `get_resource_schema_public()` to understand the organization's schema
+    2. **Input Dependencies**: Call `get_module_inputs()` to check required resource connections
+    3. **Template Structure**: Use `get_sample_for_module()` to see proper configuration structure
+    
+    **Complete Resource Creation Workflow:**
+    1. **Discover Resources**: `list_available_resources()` to see available types and flavors
+    2. **Understand Schema**: `get_resource_schema_public(intent, flavor, version)` to learn actual property requirements
+    3. **Check Dependencies**: `get_module_inputs(intent, flavor)` to identify required connections
        - For each required input with multiple compatible resources, ASK THE USER which one to use
-       - Present the options clearly: "For the 'database' input, I see these compatible resources: X, Y, Z. Which would you like to use?"
-       - If a required input has no compatible resources, you must create those dependencies first
-    4. Call get_spec_for_module(resource_type, flavor, version) to understand the schema
-    5. Call get_sample_for_module(resource_type, flavor, version) to get a sample template
-    6. Customize the template from step 5 according to user requirements
-    7. Call add_resource() with all the parameters including:
-       - The customized content
-       - A map of inputs where each key is an input name and each value is a dict with:
-         * resource_name: The name of the selected resource
-         * resource_type: The type of the selected resource
-         * output_name: The output name of the selected resource
+       - Present options clearly: "For the 'database' input, I see these compatible resources: X, Y, Z. Which would you like to use?"
+       - If required input has no compatible resources, create those dependencies first
+    4. **Get Template**: `get_sample_for_module(intent, flavor, version)` to see working example structure
+    5. **Customize Configuration**: Modify template based on schema requirements and user needs
+    6. **Create Resource**: Call `add_resource()` with proper content and input connections
+    
+    **Schema-Driven Configuration:**
+    The validation now checks against the complete organization schema, so ensure your content includes:
+    - All required fields identified in the schema
+    - Proper data types and formats as defined by the organization
+    - Valid enum values where constrained
+    - Correct nested object structures for complex properties
 
     Example inputs parameter:
     {
@@ -655,21 +740,32 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
 
         # Directory and filename will be determined by the server
 
-        # validate the resource content with spec schema
-        resource_data = {
-            "name": resource_name,
-            "type": resource_type,
-            "content": content
-        }
-
-        # get the spec schema for the module. if no spec exists, set as empty dict {}
+        # Validate the resource content against the organization's complete schema
         try:
-            resource_spec_schema = get_spec_for_module(resource_type, flavor, version)
-        except:
-            resource_spec_schema = {}
-        
-        # validate the resource data configuration with the spec schema. validation error will be automatically raised if validation fails
-        validate_resource(resource_data, resource_spec_schema)
+            # Get the complete schema from the public API 
+            schema_response = get_resource_schema_public(resource_type, flavor, version)
+            
+            # Perform strict JSON schema validation using the organization's schema
+            validate_resource_with_public_schema(content, schema_response)
+            
+        except Exception as schema_error:
+            # Provide helpful error message with schema context
+            error_message = str(schema_error)
+            
+            # Try to get schema summary for debugging context
+            try:
+                schema_response = get_resource_schema_public(resource_type, flavor, version)
+                schema_summary = get_schema_validation_summary(schema_response)
+                error_message += f"\n\nSchema Requirements:\n{schema_summary}"
+            except:
+                pass  # Schema summary is helpful but not critical
+            
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Resource configuration validation failed: {error_message}"
+                )
+            )
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
@@ -918,23 +1014,52 @@ def get_spec_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any
 @mcp.tool()
 def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, Any]:
     """
-    Get a sample JSON template for creating a new resource of a specific type.
+    Get a complete sample configuration template for a resource type.
     
-    This returns a complete sample configuration that can be used as a starting point when creating
-    a new resource. The sample includes ALL required fields such as kind, metadata,
-    flavor, version, as well as the "spec" section. This provides a complete resource structure
-    with typical values to demonstrate the expected format.
+    **Template Purpose:**
+    Provides a working example of how the organization's schema is applied in practice.
+    This shows the complete resource structure with organization-specific property names,
+    proper nesting, and example values that demonstrate expected formats and patterns.
     
-    Unlike get_spec_for_module() which only covers the "spec" section schema, this returns
-    a complete resource template with all necessary fields populated with sample values.
+    **Template Structure Analysis:**
+    - **Top-level**: Contains `kind`, `flavor`, `version`, and `spec` fields (not standard K8s structure)
+    - **spec section**: Main configuration using the organization's schema properties
+    - **Reference patterns**: Shows how to connect to variables, secrets, and other resources
+    - **Nested objects**: Demonstrates proper structure for complex configurations
+    - **Example values**: Illustrates expected data types and formats
+    
+    **Key Template Elements:**
+    - Organization-specific property names (not standard cloud provider names)
+    - Proper reference syntax for variables: `${blueprint.self.variables.name}`
+    - Proper reference syntax for secrets: `${blueprint.self.secrets.name}`
+    - Proper reference syntax for resource outputs: `${blueprint.resource_name.outputs.field}`
+    - Nested configuration objects with specific structure requirements
+    - Enum values and constraints specific to the organization
+    
+    **Customization Approach:**
+    1. Preserve the overall structure (kind, flavor, version, spec)
+    2. Keep organization-specific property names exactly as shown
+    3. Replace example values with user-specific values
+    4. Maintain reference patterns and nested object structures
+    5. Follow data type requirements shown in the examples
+    
+    **Prerequisites:**
+    - Current project must be set (use `use_project()` first)
+    - Recommended: Review schema with `get_resource_schema_public()` first
     
     Args:
-        intent: The intent/resource type (e.g., service, ingress, postgres, redis)
-        flavor: The flavor of the resource
-        version: The version of the resource
+        intent: Resource type (e.g., "postgres", "service", "redis")  
+        flavor: Implementation variant (e.g., "rds", "cloudsql", "k8s")
+        version: Module version (e.g., "0.2", "1.0")
         
     Returns:
-        A complete sample JSON configuration that can be used as a template for creating a new resource
+        Complete sample configuration with:
+        - Full resource structure using organization's patterns
+        - Example values that can be replaced with user values
+        - Proper reference formats for variables, secrets, outputs
+        - Correct nesting and data types per organization schema
+        
+    **Usage Flow:** Schema exploration → Template examination → Value customization → Resource creation
     """
     # Get current project
     current_project = ClientUtils.get_current_project()
@@ -1191,26 +1316,57 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
 @mcp.tool()
 def list_available_resources() -> List[Dict[str, Any]]:
     """
-    List all available resources that can be added to the current project.
+    Discover all infrastructure resource types that can be added to the current project.
 
-    This is the first step in the resource creation workflow. This function returns all
-    resource types (also called 'intents') and their available flavors that can be added
-    to the current project.
-
-    When adding a new resource with add_resource(), you'll need to select:
-    1. A resource_type/intent (e.g., 'service', 'ingress', 'postgres', 'redis')
-    2. A specific flavor for that resource_type
-
-    Complete resource creation workflow:
-    1. Call list_available_resources() to find available resource types and flavors
-    2. Call get_module_inputs() to check what inputs are required for the chosen resource
-    3. Call get_spec_for_module() to understand the configuration schema
-    4. Call get_sample_for_module() to get a template
-    5. Call add_resource() with the customized content and required inputs
+    **Purpose & Context:**
+    This is the **ESSENTIAL FIRST STEP** in the resource creation workflow. Resources are
+    infrastructure components like databases, services, load balancers, etc. Each resource
+    type comes in different "flavors" (e.g., postgres can be RDS, CloudSQL, or K8s-based).
+    
+    **Prerequisites:**
+    - Current project must be set (use `use_project()` first)
+    
+    **Usage Patterns:**
+    - **Resource Discovery**: "What can I deploy in this project?"
+    - **Planning Infrastructure**: Understanding available components before architecting
+    - **Exploring Options**: Seeing all flavors available for a resource type
+    - **Getting Started**: First step when building new infrastructure
+    
+    **Data Structure:**
+    Each resource entry contains:
+    - `resource_type`: The intent/type (e.g., 'postgres', 'service', 'redis')
+    - `flavor`: Specific implementation (e.g., 'rds', 'cloudsql', 'k8s')
+    - `version`: Module version to use
+    - `description`: What this resource does
+    - `display_name`: Human-friendly name
+    
+    **LLM-Friendly Tags:** [FOUNDATIONAL] [DISCOVERY] [READ-ONLY] [WORKFLOW-START]
 
     Returns:
-        A list of dictionaries with resource_type (same as intent), flavor, version,
-        description, and display_name for each available resource
+        List[Dict[str, Any]]: Complete catalog of available resources with metadata
+        
+    **Complete Resource Creation Workflow:**
+    1. `list_available_resources()` ← **You are here** (Discover options)
+    2. `get_module_inputs(type, flavor)` - Check dependencies
+    3. `get_spec_for_module(type, flavor, version)` - Understand schema
+    4. `get_sample_for_module(type, flavor, version)` - Get template  
+    5. `add_resource()` - Create with customized content
+    
+    **Common Next Steps:**
+    - Choose a resource type and flavor from the results
+    - Call `get_module_inputs()` to understand what connections are needed
+    - Use `get_resource_schema_public()` to explore properties without project context
+    
+    **Pro Tips for LLMs:**
+    - Group resources by type to help users understand options
+    - Recommend flavors based on user's cloud provider or preferences
+    - Explain the difference between similar resources (e.g., RDS vs Aurora)
+    
+    **See Also:**
+    - `get_module_inputs()` - Check resource dependencies 
+    - `get_sample_for_module()` - Get configuration templates
+    - `get_resource_schema_public()` - Explore resource properties
+    - `add_resource()` - Create resources after planning
     """
     # Get current project
     current_project = ClientUtils.get_current_project()
@@ -1258,5 +1414,90 @@ def list_available_resources() -> List[Dict[str, Any]]:
             ErrorData(
                 code=INVALID_REQUEST,
                 message=f"Failed to list available resources for project '{project_name}': {str(e)}"
+            )
+        )
+
+
+@mcp.tool()
+def get_resource_schema_public(intent: str, flavor: str, version: str) -> Dict[str, Any]:
+    """
+    Get the complete schema definition for any Facets resource type.
+    
+    **Critical Schema Context:** 
+    Facets resources use organization-specific abstractions rather than standard Kubernetes or AWS formats.
+    Each resource type has a unique schema with custom property names, validation rules, and special annotations.
+    Never assume standard property names - the organization may use "database_endpoint" instead of "host",
+    or "backup_retention_days" instead of "BackupRetentionPeriod".
+    
+    **Essential Schema Elements:**
+    - `properties`: All available configuration fields with their data types, constraints, and descriptions
+    - `required`: Fields that must be provided in the resource configuration (cannot be omitted)
+    - `x-ui-secret-ref`: Properties that require secret reference format like `${blueprint.self.secrets.db_password}`
+    - `x-ui-output-type`: Properties that can reference outputs from other resources
+    - `enum` constraints: Valid values for fields with restricted options
+    - `type` definitions: string, integer, boolean, object, array with specific validation rules
+    
+    **Schema Analysis Approach:**
+    1. Examine `properties` object to understand all available fields and their data types
+    2. Check `required` array to identify mandatory fields for the resource
+    3. Look for `x-ui-*` annotations that define special Facets behaviors
+    4. Note enum constraints and validation patterns specific to the organization
+    5. Understand nested object structures for complex configurations
+    
+    **Key Schema Patterns:**
+    - Properties may have nested objects requiring specific structure
+    - Some fields accept template expressions for dynamic values
+    - Special annotations indicate integration points (secrets, outputs, variables)
+    - Organization-defined enums replace cloud provider specific values
+    
+    Args:
+        intent: Resource type (e.g., "postgres", "service", "redis")
+        flavor: Implementation variant (e.g., "rds", "cloudsql", "k8s")
+        version: Module version (e.g., "0.2", "1.0")
+        
+    Returns:
+        Dict containing complete schema structure:
+        - `properties`: Field definitions with types, constraints, annotations
+        - `required`: List of mandatory field names  
+        - `additional_properties`: Whether custom fields are allowed
+        - `type`: Schema type (typically "object")
+        - `schema`: JSON Schema URL reference
+        
+    **Usage Context:** Use this before any resource configuration to understand the organization's
+    specific abstractions and avoid assumptions based on standard infrastructure formats.
+    
+    **Workflow Integration:** Schema exploration → Template examination → Configuration building
+    """
+    try:
+        # Create an API instance for public APIs
+        api_instance = swagger_client.PublicApIsApi(ClientUtils.get_client())
+        
+        # Call the public API to get module schema
+        schema_response = api_instance.get_module_schema(
+            intent=intent,
+            flavor=flavor,
+            version=version
+        )
+        
+        # Convert the response to a dictionary for easier consumption
+        result = {
+            "intent": intent,
+            "flavor": flavor,
+            "version": version,
+            "type": schema_response.type,
+            "required": schema_response.required or [],
+            "properties": schema_response.properties or {},
+            "additional_properties": schema_response.additional_properties,
+            "schema": schema_response.schema
+        }
+        
+        return result
+        
+    except Exception as e:
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get schema for resource with intent '{intent}', flavor '{flavor}', version '{version}': {error_message}"
             )
         )
