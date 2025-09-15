@@ -47,7 +47,7 @@ python control_plane_mcp/scripts/generate_pydantic_models.py
 
 2. **Tool Organization (`tools/`)**: Tools are organized by functional domain:
    - `project_tools.py`: Project/stack management and variable operations (11 active tools)
-   - `configure_resource_tool.py`: Resource CRUD operations, schema validation, and dependency management (12 active tools)
+   - `configure_resource_tool.py`: Resource CRUD operations, schema validation, and dependency management (13 active tools)
    - `env_tools.py`: Environment discovery and context management (3 active tools)
    - `env_resource_tool.py`: Environment-specific resource views (2 active tools)
    - `env_override_tool.py`: Environment-specific configuration overrides (5 active tools)

@@ -10,8 +10,8 @@ This MCP (Model Context Protocol) Server provides comprehensive tools for intera
 * **Resource Lifecycle Management**  
   End-to-end resource management from discovery and creation to updates and deletion. Supports complex resource dependencies, input validation, and schema-driven configuration.
 
-* **Environment Operations**  
-  Comprehensive environment management including deployment orchestration, release monitoring, scaling operations, and state management with extensive safety validations.
+* **Environment Management**
+  Environment discovery, selection, and configuration/override management with validation and safety checks.
 
 * **Safety-First Design**  
   All destructive operations require explicit user confirmation with dry-run previews. Comprehensive validation ensures safe execution of infrastructure changes.
@@ -44,6 +44,7 @@ This MCP (Model Context Protocol) Server provides comprehensive tools for intera
 | `get_module_inputs`                         | Get required inputs and compatible resources needed before adding a new resource.                                        |
 | `get_spec_for_module`                       | Get specification details for a module based on intent, flavor, and version.                                            |
 | `get_sample_for_module`                     | Get a complete sample JSON template for creating a new resource of a specific type.                                      |
+| `get_resource_schema_public`                | Get the complete schema definition for any Facets resource type.                                                         |
 | `add_resource`                              | Add a new resource to the project with dependency resolution and validation. Supports dry-run preview.                  |
 | `update_resource`                           | Update an existing resource's configuration with schema validation and change preview.                                   |
 | `delete_resource`                           | Delete a specific resource from the project with confirmation and dependency checking.                                   |
