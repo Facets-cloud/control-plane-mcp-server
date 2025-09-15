@@ -625,7 +625,8 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
     3. **Check Dependencies**: `get_module_inputs(intent, flavor)` to identify required connections
        - For each required input with multiple compatible resources, ASK THE USER which one to use
        - Present options clearly: "For the 'database' input, I see these compatible resources: X, Y, Z. Which would you like to use?"
-       - If required input has no compatible resources, create those dependencies first
+       - If required input has no compatible resources, the resource CANNOT be created until dependencies are added
+       - The function will raise an error listing which dependencies need to be created first
     4. **Get Template**: `get_sample_for_module(intent, flavor, version)` to see working example structure
     5. **Customize Configuration**: Modify template based on schema requirements and user needs
     6. **Create Resource**: Call `add_resource()` with proper content and input connections
@@ -708,6 +709,31 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
 
         # Always validate inputs - get module requirements first
         module_inputs = get_module_inputs(resource_type, flavor)
+
+        # Check for required inputs without any compatible resources
+        required_without_compatible = [
+            input_name for input_name, input_spec in module_inputs.items()
+            if not input_spec.optional and not input_spec.compatible_resources
+        ]
+
+        # If there are required inputs without compatible resources, block creation
+        if required_without_compatible:
+            missing_deps_list = []
+            for input_name in required_without_compatible:
+                input_spec = module_inputs[input_name]
+                missing_deps_list.append(f"'{input_name}' ({input_spec.display_name})")
+
+            missing_deps = ", ".join(missing_deps_list)
+            raise McpError(
+                ErrorData(
+                    code=INVALID_REQUEST,
+                    message=f"Cannot create resource '{resource_type}' because the following required inputs have no compatible resources available: {missing_deps}. "
+                            f"You need to create the required dependency resources first. "
+                            f"Use list_available_resources() to see what resources you can create."
+                )
+            )
+
+        # Get required inputs that have compatible resources available
         required_inputs = [input_name for input_name, input_spec in module_inputs.items()
                           if not input_spec.optional and input_spec.compatible_resources]
 
