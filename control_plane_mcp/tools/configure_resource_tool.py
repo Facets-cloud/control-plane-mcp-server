@@ -44,11 +44,35 @@ from ..utils.client_utils import ClientUtils
 from ..config import mcp
 import swagger_client
 from swagger_client.models import ResourceFileRequest, UpdateBlueprintRequest
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json
 from ..utils.validation_utils import validate_resource, validate_resource_with_public_schema, get_schema_validation_summary
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INVALID_REQUEST
+from pydantic import BaseModel, Field
+
+
+class ResourceInput(BaseModel):
+    """Model for a single resource input connection."""
+    resource_name: str = Field(..., description="Name of the resource to connect to")
+    resource_type: str = Field(..., description="Type of the resource to connect to")
+    output_name: Optional[str] = Field(default=None, description="Output name to use from the connected resource (optional, defaults to 'default')")
+
+
+class CompatibleResource(BaseModel):
+    """Model for a compatible resource that can be used as an input."""
+    output_name: str = Field(..., description="Name of the output from this resource")
+    resource_name: str = Field(..., description="Name of the compatible resource")
+    resource_type: str = Field(..., description="Type of the compatible resource")
+
+
+class ModuleInputSpec(BaseModel):
+    """Model for a module input specification."""
+    display_name: str = Field(..., description="Human-readable name for the input")
+    description: str = Field(..., description="Description of what this input is used for")
+    optional: bool = Field(..., description="Whether this input is optional or required")
+    type: str = Field(..., description="Data type of the input")
+    compatible_resources: List[CompatibleResource] = Field(default_factory=list, description="List of resources that can be used for this input")
 
 
 @mcp.tool()
@@ -480,7 +504,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
 
 
 @mcp.tool()
-def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, Any]]:
+def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, ModuleInputSpec]:
     """
     Get required inputs for a module before adding a resource.
     
@@ -488,9 +512,9 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
     It checks what inputs are required for a specific module and what existing resources are compatible
     with each input.
     
-    Each module input will have:
-    - 'optional': Boolean indicating if this input is required
-    - 'compatible_resources': List of resources that can be used for this input
+    Each module input will be a ModuleInputSpec object with:
+    - optional: Boolean indicating if this input is required
+    - compatible_resources: List of CompatibleResource objects that can be used for this input
     
     If there are multiple compatible resources for a required input, DO NOT select one automatically.
     Instead, you MUST ASK THE USER to choose which resource they want to use for each input.
@@ -511,7 +535,7 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
         flavor: The flavor of the resource to create
         
     Returns:
-        A dictionary of input names to their details, including compatible resources
+        A dictionary of input names to ModuleInputSpec objects, including compatible resources
     """
     # Get current project
     current_project = ClientUtils.get_current_project()
@@ -532,27 +556,27 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
         # Call the API to get module inputs
         module_inputs = api_instance.get_module_inputs(project_name, resource_type, flavor)
 
-        # Format the response for easier consumption
+        # Format the response using Pydantic models
         result = {}
         for input_name, input_data in module_inputs.items():
-            # Extract compatible resources
+            # Extract compatible resources as Pydantic objects
             compatible_resources = []
             if input_data.compatible_resources:
                 for resource in input_data.compatible_resources:
-                    compatible_resources.append({
-                        "output_name": resource.output_name,
-                        "resource_name": resource.resource_name,
-                        "resource_type": resource.resource_type
-                    })
+                    compatible_resources.append(CompatibleResource(
+                        output_name=resource.output_name,
+                        resource_name=resource.resource_name,
+                        resource_type=resource.resource_type
+                    ))
 
-            # Format input data
-            result[input_name] = {
-                "display_name": input_data.display_name,
-                "description": input_data.description,
-                "optional": input_data.optional,
-                "type": input_data.type,
-                "compatible_resources": compatible_resources
-            }
+            # Create ModuleInputSpec object
+            result[input_name] = ModuleInputSpec(
+                display_name=input_data.display_name,
+                description=input_data.description,
+                optional=input_data.optional,
+                type=input_data.type,
+                compatible_resources=compatible_resources
+            )
 
         return result
 
@@ -568,7 +592,7 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, Dict[str, An
 
 @mcp.tool()
 def add_resource(resource_type: str, resource_name: str, flavor: str, version: str,
-                 content: Dict[str, Any] = None, inputs: Dict[str, Dict[str, str]] = None,
+                 content: Dict[str, Any] = None, inputs: Dict[str, ResourceInput] = None,
                  dry_run: bool = True) -> str:
     """
     Add a new resource to the current project.
@@ -615,11 +639,11 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
 
     Example inputs parameter:
     {
-        "database": {
-            "resource_name": "my-postgres",
-            "resource_type": "postgres",
-            "output_name": "postgres_connection"
-        }
+        "database": ResourceInput(
+            resource_name="my-postgres",
+            resource_type="postgres",
+            output_name="postgres_connection"
+        )
     }
 
     Args:
@@ -629,8 +653,8 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         version: The version of the resource - must match the version from list_available_resources
         content: The content/configuration for the resource as a dictionary. This must conform
                 to the schema for the specified resource type and flavor.
-        inputs: A dictionary mapping input names to selected resources. Each value should be a dictionary with
-               'resource_name', 'resource_type', and 'output_name' keys.
+        inputs: A dictionary mapping input names to ResourceInput objects containing
+               resource_name, resource_type, and optional output_name.
         dry_run: If True, only preview the resource without creating it. Default is True.
 
     Returns:
@@ -682,13 +706,13 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
                 )
             )
 
-        # Check if inputs should be validated
-        if inputs is None:
-            # Get the module inputs to check if there are any required inputs
-            module_inputs = get_module_inputs(resource_type, flavor)
-            required_inputs = [input_name for input_name, input_data in module_inputs.items()
-                               if not input_data.get("optional", False) and input_data.get("compatible_resources")]
+        # Always validate inputs - get module requirements first
+        module_inputs = get_module_inputs(resource_type, flavor)
+        required_inputs = [input_name for input_name, input_spec in module_inputs.items()
+                          if not input_spec.optional and input_spec.compatible_resources]
 
+        # Check if inputs is None but required inputs exist
+        if inputs is None:
             if required_inputs:
                 input_list = ", ".join(required_inputs)
                 raise McpError(
@@ -700,14 +724,67 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
                                  f"to see all required inputs and their compatible resources."
                     )
                 )
+        else:
+            # Validate provided inputs
+            provided_inputs = set(inputs.keys()) if inputs else set()
+            required_input_set = set(required_inputs)
 
-        # Create a ResourceFileRequest instance with the resource details
-        resource_request = ResourceFileRequest(
-            resource_name=resource_name,
-            resource_type=resource_type,
-            content=content,
-            flavor=flavor
-        )
+            # Check for missing required inputs
+            missing_inputs = required_input_set - provided_inputs
+            if missing_inputs:
+                missing_list = ", ".join(sorted(missing_inputs))
+                raise McpError(
+                    ErrorData(
+                        code=INVALID_REQUEST,
+                        message=f"Missing required inputs for resource type '{resource_type}': {missing_list}. "
+                                 f"Call get_module_inputs('{resource_type}', '{flavor}') "
+                                 f"to see all required inputs and their compatible resources."
+                    )
+                )
+
+            # Check for invalid input names (inputs not defined in module)
+            valid_input_names = set(module_inputs.keys())
+            invalid_inputs = provided_inputs - valid_input_names
+            if invalid_inputs:
+                invalid_list = ", ".join(sorted(invalid_inputs))
+                valid_list = ", ".join(sorted(valid_input_names))
+                raise McpError(
+                    ErrorData(
+                        code=INVALID_REQUEST,
+                        message=f"Invalid input names for resource type '{resource_type}': {invalid_list}. "
+                                 f"Valid input names are: {valid_list}."
+                    )
+                )
+
+            # Validate compatibility of provided resources
+            for input_name, input_value in inputs.items():
+                input_spec = module_inputs[input_name]
+                compatible_resources = input_spec.compatible_resources
+
+                # Find if the provided resource is compatible
+                is_compatible = False
+                for compatible_resource in compatible_resources:
+                    if (compatible_resource.resource_name == input_value.resource_name and
+                        compatible_resource.resource_type == input_value.resource_type):
+                        # Check if output_name matches (if specified)
+                        if input_value.output_name is None or input_value.output_name == compatible_resource.output_name:
+                            is_compatible = True
+                            break
+
+                if not is_compatible:
+                    compatible_list = []
+                    for cr in compatible_resources:
+                        compatible_list.append(f"{cr.resource_type}/{cr.resource_name} (output: {cr.output_name})")
+                    compatible_str = ", ".join(compatible_list) if compatible_list else "none available"
+
+                    raise McpError(
+                        ErrorData(
+                            code=INVALID_REQUEST,
+                            message=f"Resource '{input_value.resource_type}/{input_value.resource_name}' "
+                                     f"(output: {input_value.output_name or 'default'}) is not compatible with input '{input_name}'. "
+                                     f"Compatible resources are: {compatible_str}."
+                        )
+                    )
 
         # If inputs are provided, add them to the content dictionary
         if inputs:
@@ -722,19 +799,26 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             for input_name, input_value in inputs.items():
                 # Create input entry without output_name first
                 input_entry = {
-                    "resource_name": input_value.get('resource_name'),
-                    "resource_type": input_value.get('resource_type')
+                    "resource_name": input_value.resource_name,
+                    "resource_type": input_value.resource_type
                 }
 
-                # Only add output_name if it's not 'default'
-                output_name = input_value.get('output_name')
-                if output_name and output_name != 'default':
-                    input_entry["output_name"] = output_name
+                # Only add output_name if it's provided and not 'default'
+                if input_value.output_name is not None and input_value.output_name != 'default':
+                    input_entry["output_name"] = input_value.output_name
 
                 formatted_inputs[input_name] = input_entry
 
             # Add the inputs to the content dictionary
             content["inputs"] = formatted_inputs
+
+        # Create a ResourceFileRequest instance with the resource details (after inputs are processed)
+        resource_request = ResourceFileRequest(
+            resource_name=resource_name,
+            resource_type=resource_type,
+            content=content,
+            flavor=flavor
+        )
 
         # Directory and filename will be determined by the server
 
@@ -782,8 +866,8 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             if inputs:
                 inputs_info = "\nConnections to other resources:\n"
                 for input_name, input_data in inputs.items():
-                    input_resource = f"{input_data.get('resource_type')}/{input_data.get('resource_name')}"
-                    output_name = input_data.get('output_name', 'default')
+                    input_resource = f"{input_data.resource_type}/{input_data.resource_name}"
+                    output_name = input_data.output_name or 'default'
                     inputs_info += f"  - {input_name}: Connected to {input_resource} (output: {output_name})\n"
             
             # Create a structured response for the dry run
