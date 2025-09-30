@@ -69,7 +69,7 @@ class CompatibleResource(BaseModel):
 class ModuleInputSpec(BaseModel):
     """Model for a module input specification."""
     display_name: str = Field(..., description="Human-readable name for the input")
-    description: str = Field(..., description="Description of what this input is used for")
+    description: Optional[str] = Field(default=None, description="Description of what this input is used for")
     optional: bool = Field(..., description="Whether this input is optional or required")
     type: str = Field(..., description="Data type of the input")
     compatible_resources: List[CompatibleResource] = Field(default_factory=list, description="List of resources that can be used for this input")
