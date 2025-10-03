@@ -2,7 +2,7 @@ from ..utils.client_utils import ClientUtils
 from ..utils.dict_utils import deep_merge
 from ..config import mcp
 import swagger_client
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Annotated
 import json
 import copy
 from mcp.shared.exceptions import McpError
@@ -10,17 +10,30 @@ from mcp.types import ErrorData, INVALID_REQUEST
 
 
 @mcp.tool()
-def get_all_resources_by_environment() -> List[Dict[str, Any]]:
+def get_all_resources_by_environment(
+    limit: Annotated[int, "Maximum number of resources to return (default: 50)"] = 50,
+    offset: Annotated[int, "Number of resources to skip (default: 0)"] = 0,
+    search: str = None,
+    resource_type: str = None
+) -> Dict[str, Any]:
     """
-    Get all resources for the current environment (cluster).
-    
-    This function retrieves all resources that are available in the currently selected environment.
-    It provides a comprehensive list of all resources deployed in the environment.
-    
+    Get all resources for the current environment (cluster) with pagination and filtering.
+
+    Returns paginated list of resources with metadata. Default returns first 50 resources.
+    Use limit/offset for pagination, search for name filtering, resource_type for type filtering.
+
+    Args:
+        limit: Maximum number of resources to return (default: 50)
+        offset: Number of resources to skip for pagination (default: 0)
+        search: Optional - Filter by resource name (case-insensitive partial match)
+        resource_type: Optional - Filter by resource type (e.g., service, postgres, redis, mongo)
+
     Returns:
-        List[Dict[str, Any]]: A list of dictionaries where each dictionary contains details about a resource
-        in the current environment.
-        
+        Dict containing:
+            - resources: List of resource objects
+            - pagination: Metadata (total, limit, offset, has_more)
+            - filters_applied: Active filters (if any)
+
     Raises:
         McpError: If no current project or environment is set.
     """
@@ -32,23 +45,23 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
                 message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
             )
         )
-    
+
     # Get current environment
     current_environment = ClientUtils.get_current_cluster()
     cluster_id = current_environment.id
-    
+
     # Create an instance of the API class
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-    
+
     try:
         # Call the API to get all resources for the environment
         resources = api_instance.get_all_resources_by_cluster(
             cluster_id=cluster_id,
             include_content=False
         )
-        
+
         # Extract and transform the relevant information
-        result = []
+        all_resources = []
         for resource in resources:
             # Check if resource should be excluded
             should_exclude = False
@@ -72,10 +85,40 @@ def get_all_resources_by_environment() -> List[Dict[str, Any]]:
                     "filename": resource.filename,
                     "info": resource.info.to_dict() if resource.info else None
                 }
-                result.append(resource_data)
-                
-        return result
-        
+                all_resources.append(resource_data)
+
+        # Apply filters
+        filtered_resources = all_resources
+        filters_applied = {}
+
+        if resource_type:
+            filtered_resources = [r for r in filtered_resources if r["type"] == resource_type]
+            filters_applied["resource_type"] = resource_type
+
+        if search:
+            search_lower = search.lower()
+            filtered_resources = [r for r in filtered_resources if search_lower in r["name"].lower()]
+            filters_applied["search"] = search
+
+        # Calculate pagination
+        total_count = len(filtered_resources)
+        start_idx = offset
+        end_idx = offset + limit
+        paginated_resources = filtered_resources[start_idx:end_idx]
+        has_more = end_idx < total_count
+
+        return {
+            "resources": paginated_resources,
+            "pagination": {
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "returned": len(paginated_resources),
+                "has_more": has_more
+            },
+            "filters_applied": filters_applied if filters_applied else None
+        }
+
     except Exception as e:
         error_message = ClientUtils.extract_error_message(e)
         raise McpError(
