@@ -44,7 +44,7 @@ from ..utils.client_utils import ClientUtils
 from ..config import mcp
 import swagger_client
 from swagger_client.models import ResourceFileRequest, UpdateBlueprintRequest
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Annotated
 import json
 from ..utils.validation_utils import validate_resource, validate_resource_with_public_schema, get_schema_validation_summary
 from mcp.shared.exceptions import McpError
@@ -1417,6 +1417,156 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
             ErrorData(
                 code=INVALID_REQUEST,
                 message=f"Failed to get output tree for resource type '{resource_type}' in project '{project_name}': {error_message}"
+            )
+        )
+
+
+def _extract_attribute_paths(obj: Any, current_path: str) -> List[str]:
+    """
+    Recursively extract all valid attribute paths from a nested object structure.
+
+    This helper function traverses the output tree structure returned by the autocomplete API
+    and generates all possible dot-notation paths that can be used in dollar references.
+
+    Args:
+        obj: The object to traverse (dict, list, or primitive value)
+        current_path: The current path prefix (e.g., "postgres.my-db.out")
+
+    Returns:
+        List of complete paths (e.g., ["postgres.my-db.out.host", "postgres.my-db.out.port"])
+
+    Examples:
+        >>> tree = {"host": "localhost", "config": {"port": 5432}}
+        >>> _extract_attribute_paths(tree, "postgres.db.out")
+        ["postgres.db.out.host", "postgres.db.out.config", "postgres.db.out.config.port"]
+    """
+    paths = []
+
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            new_path = f"{current_path}.{key}"
+            # Always add the current level path
+            paths.append(new_path)
+
+            # If value is nested (dict or list), recursively traverse it
+            if isinstance(value, (dict, list)):
+                paths.extend(_extract_attribute_paths(value, new_path))
+
+    elif isinstance(obj, list):
+        # For lists, traverse each element with array index notation
+        for idx, item in enumerate(obj):
+            new_path = f"{current_path}[{idx}]"
+            paths.append(new_path)
+
+            if isinstance(item, (dict, list)):
+                paths.extend(_extract_attribute_paths(item, new_path))
+
+    return paths
+
+
+@mcp.tool()
+def get_resource_outputs(
+    resource_type: Optional[str] = None,
+    resource_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get all available output references from resources in the current project.
+
+    This tool returns actual dollar reference expressions (${...}) that can be used in resource
+    configurations to reference outputs from existing resources. Unlike get_resource_output_tree()
+    which shows schema structure, this returns actual instances with complete reference paths ready to use.
+
+    Requires a current project to be set using use_project() first.
+
+    Use this tool when you need to discover what outputs are available, resolve "has no attribute" errors,
+    or find valid reference expressions for connecting resources.
+
+    For example, to get all postgres database outputs: get_resource_outputs(resource_type="postgres")
+    Or for a specific resource: get_resource_outputs(resource_type="service", resource_name="api")
+
+    Returns references in format: ${postgres.my-db.out.connection_string}
+
+    Args:
+        resource_type: Optional - Filter to specific resource type (e.g., "postgres", "mongo", "service", "redis")
+        resource_name: Optional - Filter to specific resource name (e.g., "my-database", "api-service")
+
+    Returns:
+        Dict containing all_dollar_references (sorted list), total_references count, and filters_applied
+    """
+    # Check if current project is set
+    current_project = ClientUtils.get_current_project()
+    if not current_project:
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message="No current project is set. Please set a project using use_project() first."
+            )
+        )
+
+    project_name = current_project.name
+
+    try:
+        # Create API instance
+        api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
+
+        # Call the autocomplete v2 API which returns module-specific output trees
+        response = api_instance.get_autocomplete_data_v2(stack_name=project_name)
+
+        # Convert response to dict if needed
+        if hasattr(response, "to_dict"):
+            response_dict = response.to_dict()
+        else:
+            response_dict = response
+
+        # Get resource output trees from the response
+        # Structure: {resource_type: {resource_name: output_tree}}
+        resource_trees = response_dict.get("resource_output_trees", {})
+
+        # Extract dollar reference paths with optional filtering
+        all_references = []
+        for res_type, resources in resource_trees.items():
+            # Filter by resource_type if provided
+            if resource_type and res_type != resource_type:
+                continue
+
+            if isinstance(resources, dict):
+                for res_name, outputs in resources.items():
+                    # Filter by resource_name if provided
+                    if resource_name and res_name != resource_name:
+                        continue
+
+                    # Extract all attribute paths from this resource's output tree
+                    # Starting path format: resource_type.resource_name.out
+                    paths = _extract_attribute_paths(outputs, f"{res_type}.{res_name}.out")
+
+                    # Wrap each path in ${...} to create dollar references
+                    for path in paths:
+                        all_references.append(f"${{{path}}}")
+
+        # Build filter information for response
+        filters_applied = {}
+        if resource_type:
+            filters_applied["resource_type"] = resource_type
+        if resource_name:
+            filters_applied["resource_name"] = resource_name
+
+        # Return structured result
+        result = {
+            "status": "success",
+            "project_name": project_name,
+            "all_dollar_references": sorted(all_references),
+            "total_references": len(all_references),
+            "filters_applied": filters_applied if filters_applied else None
+        }
+
+        return result
+
+    except Exception as e:
+        error_message = ClientUtils.extract_error_message(e)
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=f"Failed to get resource output references for project '{project_name}': {error_message}"
             )
         )
 
