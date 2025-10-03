@@ -44,7 +44,7 @@ from ..utils.client_utils import ClientUtils
 from ..config import mcp
 import swagger_client
 from swagger_client.models import ResourceFileRequest, UpdateBlueprintRequest
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Annotated
 import json
 from ..utils.validation_utils import validate_resource, validate_resource_with_public_schema, get_schema_validation_summary
 from mcp.shared.exceptions import McpError
@@ -76,9 +76,29 @@ class ModuleInputSpec(BaseModel):
 
 
 @mcp.tool()
-def get_all_resources_by_project() -> List[Dict[str, Any]]:
+def get_all_resources_by_project(
+    limit: Annotated[int, "Maximum number of resources to return (default: 50)"] = 50,
+    offset: Annotated[int, "Number of resources to skip (default: 0)"] = 0,
+    search: str = None,
+    resource_type: str = None
+) -> Dict[str, Any]:
     """
-    Get all resources for the current project.
+    Get all resources for the current project with pagination and filtering.
+
+    Returns paginated list of resources with metadata. Default returns first 50 resources.
+    Use limit/offset for pagination, search for name filtering, resource_type for type filtering.
+
+    Args:
+        limit: Maximum number of resources to return (default: 50)
+        offset: Number of resources to skip for pagination (default: 0)
+        search: Optional - Filter by resource name (case-insensitive partial match)
+        resource_type: Optional - Filter by resource type (e.g., service, postgres, redis, mongo)
+
+    Returns:
+        Dict containing:
+            - resources: List of resource objects
+            - pagination: Metadata (total, limit, offset, has_more)
+            - filters_applied: Active filters (if any)
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
@@ -92,14 +112,13 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
             )
         )
     project_name = current_project.name
-    
-    try:
 
+    try:
         # Call the API to get all resources for the project
         resources = api_instance.get_all_resources_by_stack(project_name, include_content=True)
 
         # Extract and transform the relevant information
-        result = []
+        all_resources = []
         for resource in resources:
             # Check if resource should be excluded
             should_exclude = False
@@ -123,8 +142,40 @@ def get_all_resources_by_project() -> List[Dict[str, Any]]:
                     "filename": resource.filename,
                     "info": resource.info.to_dict() if resource.info else None
                 }
-                result.append(resource_data)
-        return result
+                all_resources.append(resource_data)
+
+        # Apply filters
+        filtered_resources = all_resources
+        filters_applied = {}
+
+        if resource_type:
+            filtered_resources = [r for r in filtered_resources if r["type"] == resource_type]
+            filters_applied["resource_type"] = resource_type
+
+        if search:
+            search_lower = search.lower()
+            filtered_resources = [r for r in filtered_resources if search_lower in r["name"].lower()]
+            filters_applied["search"] = search
+
+        # Calculate pagination
+        total_count = len(filtered_resources)
+        start_idx = offset
+        end_idx = offset + limit
+        paginated_resources = filtered_resources[start_idx:end_idx]
+        has_more = end_idx < total_count
+
+        return {
+            "resources": paginated_resources,
+            "pagination": {
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "returned": len(paginated_resources),
+                "has_more": has_more
+            },
+            "filters_applied": filters_applied if filters_applied else None
+        }
+
     except Exception as e:
         error_message = ClientUtils.extract_error_message(e)
         raise McpError(
