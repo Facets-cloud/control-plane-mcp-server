@@ -104,6 +104,7 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
             - type: Resource type
             - directory: Resource directory
             - filename: Resource filename
+            - module_id: Terraform module ID (if available)
             - base_config: The base JSON configuration
             - overrides: Override configuration (if any)
             - effective_config: Deep merged configuration (base + overrides)
@@ -166,6 +167,7 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
             "type": resource.resource_type,
             "directory": resource.directory,
             "filename": resource.filename,
+            "module_id": resource.info.tf_module_id if (resource.info and hasattr(resource.info, 'tf_module_id')) else None,
             "base_config": base_config,
             "overrides": overrides,
             "effective_config": effective_config,
