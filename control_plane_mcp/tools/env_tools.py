@@ -58,24 +58,27 @@ def _convert_swagger_environment_to_pydantic(swagger_environment) -> AbstractClu
     return AbstractClusterModel.model_validate(environment_data)
 
 @mcp.tool()
-def get_all_environments() -> List[AbstractClusterModel]:
+def get_all_environments(project_name: str = "") -> List[AbstractClusterModel]:
     """
     Get all environments (clusters) available in the current project.
-    
+
     **Purpose & Context:**
-    Environments represent deployment targets where your resources run (e.g., dev, staging, 
+    Environments represent deployment targets where your resources run (e.g., dev, staging,
     production). Each environment typically corresponds to a separate cluster or cloud account.
     This function discovers what environments are available for deploying and managing resources.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     **Prerequisites:**
-    - Current project must be set (use `use_project()` first)
-    
+    - Project context must be set (use `use_project()`) OR provide project_name parameter
+
     **Usage Patterns:**
     - **Environment Discovery**: "Where can I deploy my resources?"
     - **Multi-Environment Management**: Understanding all deployment targets
     - **Environment Selection**: Before setting environment context
     - **Infrastructure Overview**: Seeing the full deployment landscape
-    
+
     **Data Structure:**
     Each environment contains:
     - `name`: Environment identifier (e.g., "dev", "staging", "production")
@@ -83,40 +86,46 @@ def get_all_environments() -> List[AbstractClusterModel]:
     - `cloud_provider`: AWS, GCP, Azure, etc.
     - `region`: Geographic location
     - `status`: Health and availability status
-    
+
     **LLM-Friendly Tags:** [FOUNDATIONAL] [DISCOVERY] [READ-ONLY] [MULTI-ENVIRONMENT]
+
+    Args:
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         List[AbstractClusterModel]: List of all environments with their configuration details
-        
+
     **Workflow Integration:**
     1. `use_project()` - Set project context first
     2. `get_all_environments()` ← **You are here** (Discover environments)
     3. `use_environment()` - Select specific environment to work with
     4. **Now enabled:** Environment-specific resource and override operations
-    
+
     **Common Next Steps:**
     - Choose an environment from the results
     - Call `use_environment()` to set environment context
     - Use environment-specific tools for resource management
-    
+
     **Pro Tips for LLMs:**
-    - Group environments by purpose (dev, staging, prod) 
+    - Group environments by purpose (dev, staging, prod)
     - Recommend starting with dev/staging for testing
     - Consider environment dependencies (e.g., promote changes dev → staging → prod)
-    
+
+    Raises:
+        McpError: If project cannot be resolved
+
     **See Also:**
     - `use_environment()` - Set environment context for operations
     - `get_current_environment_details()` - Get details of selected environment
     - `use_project()` - Set project context first
     """
-    project = ClientUtils.get_current_project()
-    if not project:
+    try:
+        project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. "
-                "Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
 
@@ -224,29 +233,36 @@ def use_environment(environment_name: str):
     return f"Current environment set to {environment_name}"
 
 @mcp.tool()
-def get_current_environment_details() -> AbstractClusterModel:
+def get_current_environment_details(project_name: str = "", env_name: str = "") -> AbstractClusterModel:
     """
     Get the current environment details. 🔍 This requires the current project and environment to be set. 🔄
     The function refreshes environment information from the server to ensure data is not stale. ✨
 
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
+    Args:
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
+
     Returns:
         AbstractClusterModel: The refreshed current environment object with the latest information.
-    
+
     Raises:
-        ValueError: If no current project or environment is set.
+        McpError: If project/environment cannot be resolved.
     """
-    if not ClientUtils.is_current_cluster_and_project_set():
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. "
-                "Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-    
-    project = ClientUtils.get_current_project()
-    current_environment = ClientUtils.get_current_cluster()
-    
+
     # Create an instance of the API class to get fresh data
     api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
     # Fetch the latest environment details
@@ -268,7 +284,7 @@ def get_current_environment_details() -> AbstractClusterModel:
             # Update the current environment in client utils
             ClientUtils.set_current_cluster(refreshed_environment)
             break
-    
+
     if not refreshed_environment:
         raise McpError(
             ErrorData(
@@ -276,5 +292,5 @@ def get_current_environment_details() -> AbstractClusterModel:
                 message=f"Environment with ID {current_environment.id} no longer exists in project {project.name}"
             )
         )
-    
+
     return _convert_swagger_environment_to_pydantic(refreshed_environment)

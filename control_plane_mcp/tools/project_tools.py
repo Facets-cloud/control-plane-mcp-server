@@ -46,41 +46,54 @@ from mcp.types import ErrorData, INVALID_REQUEST
 
 
 @mcp.tool()
-def create_variable(name: str, variable: VariablesModel) -> None:
+def create_variable(name: str, variable: VariablesModel, project_name: str = "") -> None:
     """
     Create a new variable or secret in the current project.
-    
+
     **Purpose & Context:**
     Variables and secrets store configuration values and sensitive data that can be
     referenced by resources across the project. Variables are plain text values,
     while secrets are encrypted values for sensitive data like passwords and API keys.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     **Prerequisites:**
-    - Current project must be set (use `use_project()` first)
+    - Project context must be set (use `use_project()`) OR provide project_name parameter
     - Variable name must not already exist in the project
     - Recommended: Call `get_secrets_and_vars()` first to check existing variables
-    
+
     **Usage Patterns:**
     - Creating database credentials: `create_variable("db_password", secret_model)`
-    - Setting API endpoints: `create_variable("api_url", variable_model)` 
+    - Setting API endpoints: `create_variable("api_url", variable_model)`
     - Storing environment-specific configs that resources will reference
-    
+
     **LLM-Friendly Tags:** [FOUNDATIONAL] [PROJECT-LEVEL] [CONFIGURATION]
 
     Args:
         name: Name of the variable to create (must be unique within project)
         variable: VariablesModel object containing value, description, and secret flag
+        project_name: Optional - Project name to use (overrides current project context)
 
     Raises:
-        McpError: If the variable already exists or no current project is set
-        
+        McpError: If the variable already exists or project cannot be resolved
+
     **See Also:**
     - `get_secrets_and_vars()` - Check existing variables before creating
     - `update_variable()` - Modify existing variable values
     - `get_variable_by_name()` - Retrieve specific variable details
     """
-    current_vars = get_secrets_and_vars()
-    current_project = ClientUtils.get_current_project()
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=str(ve)
+            )
+        )
+
+    current_vars = get_secrets_and_vars(project_name)
 
     if name in current_vars:
         raise McpError(
@@ -99,19 +112,32 @@ def create_variable(name: str, variable: VariablesModel) -> None:
 
 
 @mcp.tool()
-def update_variable(name: str, variable: VariablesModel) -> None:
+def update_variable(name: str, variable: VariablesModel, project_name: str = "") -> None:
     """
     Update an existing variable in the current project.
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
 
     Args:
         name: Name of the variable to update.
         variable: VariablesModel object of the variable to update.
+        project_name: Optional - Project name to use (overrides current project context)
 
     Raises:
-        McpError: If the variable does not exist.
+        McpError: If the variable does not exist or project cannot be resolved.
     """
-    current_vars = get_secrets_and_vars()
-    current_project = ClientUtils.get_current_project()
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=str(ve)
+            )
+        )
+
+    current_vars = get_secrets_and_vars(project_name)
 
     if name not in current_vars:
         raise McpError(
@@ -131,17 +157,21 @@ def update_variable(name: str, variable: VariablesModel) -> None:
 
 
 @mcp.tool()
-def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
+def delete_variable(name: str, confirmed_by_user: bool = False, project_name: str = "") -> None:
     """
     Delete a variable from the current project.
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
 
     Args:
         name: Name of the variable to delete.
         confirmed_by_user: Flag to check if changes have been confirmed by the user.
         IMPORTANT: Only send this true if you have asked user and warned him that this will remove variable and is a destructive action
+        project_name: Optional - Project name to use (overrides current project context)
 
     Raises:
-        McpError: If the variable does not exist or if changes have not been confirmed.
+        McpError: If the variable does not exist, changes not confirmed, or project cannot be resolved.
     """
     if not confirmed_by_user:
         raise McpError(
@@ -151,8 +181,17 @@ def delete_variable(name: str, confirmed_by_user: bool = False) -> None:
             )
         )
 
-    current_vars = get_secrets_and_vars()
-    current_project = ClientUtils.get_current_project()
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
+        raise McpError(
+            ErrorData(
+                code=INVALID_REQUEST,
+                message=str(ve)
+            )
+        )
+
+    current_vars = get_secrets_and_vars(project_name)
 
     if name not in current_vars:
         raise McpError(
@@ -297,40 +336,46 @@ def refresh_current_project():
 
 
 @mcp.tool()
-def get_secrets_and_vars():
+def get_secrets_and_vars(project_name: str = ""):
     """
     Get all variables and secrets defined in the current project.
-    
+
     **Purpose & Context:**
     Variables and secrets are key-value pairs that store configuration data and sensitive
     information that can be referenced by resources throughout the project. This function
     provides visibility into what configuration values are already available.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     **Prerequisites:**
-    - Current project must be set (use `use_project()` first)
-    
+    - Project context must be set (use `use_project()`) OR provide project_name parameter
+
     **Usage Patterns:**
     - **Pre-Creation Check**: Before creating new variables to avoid duplicates
     - **Configuration Discovery**: Understanding what config values are available
     - **Resource Planning**: Knowing what references can be used in resource configs
     - **Debugging**: Troubleshooting missing or incorrect configuration values
-    
+
     **Data Structure:**
     Returns a dictionary where:
     - Keys are variable/secret names
     - Values contain metadata (description, secret flag, default values, etc.)
     - Actual secret values are not exposed for security
-    
+
     **LLM-Friendly Tags:** [FOUNDATIONAL] [READ-ONLY] [CONFIGURATION] [DISCOVERY]
+
+    Args:
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         dict: Dictionary mapping variable names to their metadata and configuration
-        
+
     **Workflow Integration:**
     - **Before** `create_variable()` - Check if name already exists
     - **Before** resource creation - See what variables can be referenced
     - **During** debugging - Verify expected variables are present
-    
+
     **Common Patterns:**
     ```python
     vars = get_secrets_and_vars()
@@ -339,24 +384,26 @@ def get_secrets_and_vars():
     ```
 
     Raises:
-        McpError: If no current project is set
-        
+        McpError: If project cannot be resolved
+
     **See Also:**
     - `create_variable()` - Add new variables or secrets
     - `get_variable_by_name()` - Get specific variable details
     - `update_variable()` - Modify existing variable values
     - `use_project()` - Set project context first
     """
-    if not ClientUtils.get_current_project():
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set."
+                message=str(ve)
             )
         )
 
-    # Return the variables from the cached project
-    return ClientUtils.get_current_project().cluster_variables_meta
+    # Return the variables from the project
+    return current_project.cluster_variables_meta
 
 
 @mcp.tool()
@@ -392,20 +439,24 @@ def get_project_details(project_name: str):
 
 
 @mcp.tool()
-def get_variable_by_name(name: str):
+def get_variable_by_name(name: str, project_name: str = ""):
     """
     Get a specific variable by its name from the current project.
 
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         name: Name of the variable to retrieve.
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         VariablesModel: The variable object corresponding to the name.
 
     Raises:
-        McpError: If the variable does not exist.
+        McpError: If the variable does not exist or project cannot be resolved.
     """
-    current_vars = get_secrets_and_vars()
+    current_vars = get_secrets_and_vars(project_name)
 
     if name not in current_vars:
         raise McpError(
@@ -419,66 +470,71 @@ def get_variable_by_name(name: str):
 
 
 @mcp.tool()
-def get_variable_environment_values(variable_name: str):
+def get_variable_environment_values(variable_name: str, project_name: str = ""):
     """
     Get current values of a variable/secret across all environments in the project.
-    
+
     **Purpose & Context:**
     Variables can have different values in different environments (dev, staging, prod).
     This function shows the project-level default value AND any environment-specific
     overrides, giving you a complete view of how a variable is configured across
     all deployment targets.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     **Prerequisites:**
-    - Current project must be set (use `use_project()` first)
+    - Project context must be set (use `use_project()`) OR provide project_name parameter
     - Variable must exist in the project (check with `get_secrets_and_vars()`)
-    
+
     **Usage Patterns:**
     - **Configuration Audit**: Understanding how a variable differs across environments
     - **Pre-Update Planning**: Before setting environment-specific values
     - **Debugging**: When a service behaves differently in different environments
     - **Compliance Review**: Ensuring sensitive values are properly configured
-    
+
     **When to Use:**
     - Before calling `update_variable_environment_value()` to understand current state
     - When troubleshooting environment-specific issues
     - During environment promotion workflows
-    
+
     **LLM-Friendly Tags:** [ENVIRONMENT-AWARE] [READ-ONLY] [CONFIGURATION] [DEBUG]
 
     Args:
         variable_name: Name of the variable to retrieve across environments
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         VariableEnvironmentResponse: Contains project default and environment overrides
         - `stack_default`: The project-level default value
         - `environment_values`: List of environment-specific overrides
         - `description`: Variable description and metadata
-        
+
     **Workflow Integration:**
     1. `get_secrets_and_vars()` - Verify variable exists
     2. `get_variable_environment_values()` ← **You are here**
     3. `update_variable_environment_value()` - Set environment-specific value
 
     Raises:
-        McpError: If no current project is set or variable does not exist
-        
+        McpError: If project cannot be resolved or variable does not exist
+
     **See Also:**
     - `update_variable_environment_value()` - Set environment-specific values
     - `get_secrets_and_vars()` - Check if variable exists first
     - `get_all_environments()` - See available environments
     """
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using use_project()."
+                message=str(ve)
             )
         )
 
     # Check if variable exists in the project
-    current_vars = get_secrets_and_vars()
+    current_vars = get_secrets_and_vars(project_name)
     if variable_name not in current_vars:
         available_vars = list(current_vars.keys())
         raise McpError(
@@ -504,90 +560,88 @@ def get_variable_environment_values(variable_name: str):
 
 
 @mcp.tool()
-def update_variable_environment_value(variable_name: str, value: str):
+def update_variable_environment_value(variable_name: str, value: str, project_name: str = "", env_name: str = ""):
     """
     Set an environment-specific value for an existing project variable/secret.
-    
+
     **Purpose & Context:**
     This function creates environment-specific overrides for variables, allowing the
     same variable to have different values in different environments (dev, staging, prod).
     For example, a database URL variable might point to different databases per environment.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     **Prerequisites:**
-    - Current project must be set (use `use_project()` first)  
-    - Current environment must be set (use `use_environment()` first)
+    - Project context must be set (use `use_project()`) OR provide project_name parameter
+    - Environment context must be set (use `use_environment()`) OR provide env_name parameter
     - Variable must already exist in the project (use `create_variable()` first)
-    
+
     **Usage Patterns:**
     - **Environment-Specific Configuration**: Different API endpoints per environment
     - **Staged Rollouts**: Testing new values in dev before promoting to prod
     - **Security Isolation**: Different credentials for each environment
     - **Performance Tuning**: Different resource limits per environment
-    
+
     **Important Behavior:**
     - Creates an override for the current environment only
     - Does NOT affect the project-level default value
     - Does NOT affect other environments' values
     - If environment value is removed later, falls back to project default
-    
+
     **Critical Safety:**
     ⚠️ This modifies live configuration that affects deployed resources.
     Consider the impact on running services in the target environment.
-    
+
     **LLM-Friendly Tags:** [ENVIRONMENT-AWARE] [CONFIGURATION] [DESTRUCTIVE] [ADVANCED]
 
     Args:
         variable_name: Name of the existing variable/secret to override
         value: New value to set specifically for the current environment
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
 
     Returns:
         str: Success confirmation message
-        
+
     **Workflow Integration:**
     1. `use_project()` - Set project context
-    2. `use_environment()` - Set environment context  
+    2. `use_environment()` - Set environment context
     3. `get_variable_environment_values()` - Check current state (optional)
     4. `update_variable_environment_value()` ← **You are here**
-    
+
     **Example Workflow:**
     ```
     use_project("my-app")
-    use_environment("production") 
+    use_environment("production")
     update_variable_environment_value("api_url", "https://api.prod.example.com")
     ```
 
     Raises:
-        McpError: If no current project/environment is set, variable doesn't exist, 
+        McpError: If project/environment cannot be resolved, variable doesn't exist,
                  or API call fails
-                 
+
     **See Also:**
     - `get_variable_environment_values()` - View current values before updating
     - `use_environment()` - Set environment context first
     - `create_variable()` - Create the base variable first
     - `get_all_environments()` - See available environments
     """
-    # Validate prerequisites
-    current_project = ClientUtils.get_current_project()
-    current_environment = ClientUtils.get_current_cluster()
-    
-    if not current_project:
+    # Resolve project and environment
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, current_project)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using use_project()."
-            )
-        )
-    
-    if not current_environment:
-        raise McpError(
-            ErrorData(
-                code=INVALID_REQUEST,
-                message="No current environment is set. Please set an environment using use_environment()."
+                message=str(ve)
             )
         )
 
     # Check if variable exists in the project
-    current_vars = get_secrets_and_vars()
+    current_vars = get_secrets_and_vars(project_name)
     if variable_name not in current_vars:
         available_vars = list(current_vars.keys())
         raise McpError(

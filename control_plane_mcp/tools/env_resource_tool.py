@@ -13,8 +13,10 @@ from mcp.types import ErrorData, INVALID_REQUEST
 def get_all_resources_by_environment(
     limit: Annotated[int, "Maximum number of resources to return (default: 50)"] = 50,
     offset: Annotated[int, "Number of resources to skip (default: 0)"] = 0,
-    search: str = None,
-    resource_type: str = None
+    search: str = "",
+    resource_type: str = "",
+    project_name: str = "",
+    env_name: str = ""
 ) -> Dict[str, Any]:
     """
     Get all resources for the current environment (cluster) with pagination and filtering.
@@ -22,11 +24,17 @@ def get_all_resources_by_environment(
     Returns paginated list of resources with metadata. Default returns first 50 resources.
     Use limit/offset for pagination, search for name filtering, resource_type for type filtering.
 
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     Args:
         limit: Maximum number of resources to return (default: 50)
         offset: Number of resources to skip for pagination (default: 0)
         search: Optional - Filter by resource name (case-insensitive partial match)
         resource_type: Optional - Filter by resource type (e.g., service, postgres, redis, mongo)
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
 
     Returns:
         Dict containing:
@@ -35,20 +43,20 @@ def get_all_resources_by_environment(
             - filters_applied: Active filters (if any)
 
     Raises:
-        McpError: If no current project or environment is set.
+        McpError: If project/environment cannot be resolved.
     """
-    # Check if both project and environment are set
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # Resolve project and environment
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+        cluster_id = current_environment.id
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-
-    # Get current environment
-    current_environment = ClientUtils.get_current_cluster()
-    cluster_id = current_environment.id
 
     # Create an instance of the API class
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
@@ -130,17 +138,28 @@ def get_all_resources_by_environment(
 
 
 @mcp.tool()
-def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[str, Any]:
+def get_resource_by_environment(
+    resource_type: str,
+    resource_name: str,
+    project_name: str = "",
+    env_name: str = ""
+) -> Dict[str, Any]:
     """
     Get a specific resource by type and name for the current environment (cluster).
-    
+
     This returns the resource configuration including the base JSON, overrides,
     effective configuration (deep merge of base + overrides), and override flag.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     Args:
         resource_type: The type of resource to retrieve (e.g., service, ingress, postgres, redis)
         resource_name: The name of the specific resource to retrieve
-        
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
+
     Returns:
         Dict[str, Any]: Resource details including:
             - name: Resource name
@@ -154,22 +173,22 @@ def get_resource_by_environment(resource_type: str, resource_name: str) -> Dict[
             - is_overridden: Boolean indicating if resource has overrides
             - info: Resource info object
             - errors: Any validation errors (if present)
-        
+
     Raises:
-        McpError: If no current project or environment is set, or if the resource is not found.
+        McpError: If project/environment cannot be resolved, or if the resource is not found.
     """
-    # Check if both project and environment are set
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # Resolve project and environment using helper functions
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+        cluster_id = current_environment.id
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-    
-    # Get current environment
-    current_environment = ClientUtils.get_current_cluster()
-    cluster_id = current_environment.id
     
     # Create an instance of the API class
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())

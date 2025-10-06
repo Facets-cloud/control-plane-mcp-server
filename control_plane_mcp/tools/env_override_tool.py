@@ -12,37 +12,43 @@ from mcp.types import ErrorData, INVALID_REQUEST
 
 
 @mcp.tool()
-def add_or_update_override_property(resource_type: str, resource_name: str, property_path: str, value: Any) -> Dict[str, Any]:
+def add_or_update_override_property(resource_type: str, resource_name: str, property_path: str, value: Any, project_name: str = "", env_name: str = "") -> Dict[str, Any]:
     """
     Safely add or update a specific property in the resource overrides.
-    
+
     This function retrieves the current overrides, adds or updates the specified property,
     and then applies the modified overrides. It will not overwrite other existing overrides.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     Args:
         resource_type: The type of resource (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource
         property_path: Dot-separated path to the property (e.g., "spec.replicas", "spec.resources.limits.memory")
         value: The value to set for the property
-        
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
+
     Returns:
         Dict[str, Any]: The updated override configuration
-        
+
     Raises:
         McpError: If no current project or environment is set, or if the operation fails
     """
-    # Check if both project and environment are set
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # Resolve project and environment
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+        cluster_id = current_environment.id
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-    
-    # Get current environment
-    current_environment = ClientUtils.get_current_cluster()
-    cluster_id = current_environment.id
     
     # Create an instance of the API class
     api_instance = swagger_client.UiApplicationControllerApi(ClientUtils.get_client())
@@ -108,36 +114,42 @@ def add_or_update_override_property(resource_type: str, resource_name: str, prop
 
 
 @mcp.tool()
-def remove_override_property(resource_type: str, resource_name: str, property_path: str) -> Dict[str, Any]:
+def remove_override_property(resource_type: str, resource_name: str, property_path: str, project_name: str = "", env_name: str = "") -> Dict[str, Any]:
     """
     Remove a specific property from the resource overrides.
-    
+
     This function removes only the specified property from the overrides, leaving all
     other overrides intact. Empty parent objects are automatically cleaned up.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     Args:
         resource_type: The type of resource (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource
         property_path: Dot-separated path to the property (e.g., "spec.replicas", "spec.resources.limits.memory")
-        
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
+
     Returns:
         Dict[str, Any]: Result of the operation including remaining overrides
-        
+
     Raises:
         McpError: If no current project or environment is set, or if the operation fails
     """
-    # Check if both project and environment are set
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # Resolve project and environment
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+        cluster_id = current_environment.id
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-    
-    # Get current environment
-    current_environment = ClientUtils.get_current_cluster()
-    cluster_id = current_environment.id
     
     # Create an instance of the API class
     api_instance = swagger_client.UiApplicationControllerApi(ClientUtils.get_client())
@@ -231,37 +243,43 @@ def remove_override_property(resource_type: str, resource_name: str, property_pa
 
 
 @mcp.tool()
-def replace_all_overrides(resource_type: str, resource_name: str, override_data: Dict[str, Any]) -> Dict[str, Any]:
+def replace_all_overrides(resource_type: str, resource_name: str, override_data: Dict[str, Any], project_name: str = "", env_name: str = "") -> Dict[str, Any]:
     """
     Replace all existing overrides with a completely new override configuration.
-    
+
     WARNING: This function will COMPLETELY REPLACE all existing overrides for the resource.
     Any existing overrides will be lost. Use add_or_update_override_property() if you want
     to modify specific properties while preserving other overrides.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     Args:
         resource_type: The type of resource (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource
         override_data: A dictionary containing the complete new override configuration
-        
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
+
     Returns:
         Dict[str, Any]: The new override configuration
-        
+
     Raises:
         McpError: If no current project or environment is set, or if the operation fails
     """
-    # Check if both project and environment are set
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # Resolve project and environment
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+        cluster_id = current_environment.id
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-    
-    # Get current environment
-    current_environment = ClientUtils.get_current_cluster()
-    cluster_id = current_environment.id
     
     # Create an instance of the API class
     api_instance = swagger_client.UiApplicationControllerApi(ClientUtils.get_client())
@@ -302,35 +320,41 @@ def replace_all_overrides(resource_type: str, resource_name: str, override_data:
 
 
 @mcp.tool()
-def clear_all_overrides(resource_type: str, resource_name: str) -> Dict[str, Any]:
+def clear_all_overrides(resource_type: str, resource_name: str, project_name: str = "", env_name: str = "") -> Dict[str, Any]:
     """
     Remove all overrides for a resource in the current environment.
-    
+
     This function completely removes all environment-specific overrides for the resource,
     causing it to use only the base configuration from the project.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     Args:
         resource_type: The type of resource (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource
-        
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
+
     Returns:
         Dict[str, Any]: A message indicating the result of the operation
-        
+
     Raises:
         McpError: If no current project or environment is set, or if the operation fails
     """
-    # Check if both project and environment are set
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # Resolve project and environment
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+        cluster_id = current_environment.id
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-    
-    # Get current environment
-    current_environment = ClientUtils.get_current_cluster()
-    cluster_id = current_environment.id
     
     # Create an instance of the API class
     api_instance = swagger_client.UiApplicationControllerApi(ClientUtils.get_client())
@@ -369,37 +393,43 @@ def clear_all_overrides(resource_type: str, resource_name: str) -> Dict[str, Any
 
 
 @mcp.tool()
-def preview_override_effect(resource_type: str, resource_name: str, property_path: str, value: Any) -> Dict[str, Any]:
+def preview_override_effect(resource_type: str, resource_name: str, property_path: str, value: Any, project_name: str = "", env_name: str = "") -> Dict[str, Any]:
     """
     Preview what the effective configuration would be if a specific override is applied.
-    
+
     This function shows the result of applying a proposed override without actually
     modifying the resource. Useful for understanding the impact before making changes.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+    - env_name: If provided, uses this environment; otherwise falls back to current environment context
+
     Args:
         resource_type: The type of resource (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource
         property_path: Dot-separated path to the property (e.g., "spec.replicas")
         value: The proposed value for the property
-        
+        project_name: Optional - Project name to use (overrides current project context)
+        env_name: Optional - Environment name to use (overrides current environment context)
+
     Returns:
         Dict[str, Any]: Preview of the effective configuration with the proposed change
-        
+
     Raises:
         McpError: If no current project or environment is set, or if the operation fails
     """
-    # Check if both project and environment are set
-    if not ClientUtils.is_current_cluster_and_project_set():
+    # Resolve project and environment
+    try:
+        project = ClientUtils.resolve_project(project_name)
+        current_environment = ClientUtils.resolve_environment(env_name, project)
+        cluster_id = current_environment.id
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project or environment is set. Please set a project using project_tools.use_project() and an environment using env_tools.use_environment()."
+                message=str(ve)
             )
         )
-    
-    # Get current environment
-    current_environment = ClientUtils.get_current_cluster()
-    cluster_id = current_environment.id
     
     # Create API instances
     dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
