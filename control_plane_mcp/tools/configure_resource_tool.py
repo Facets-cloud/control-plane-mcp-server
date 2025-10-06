@@ -478,7 +478,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
                     schema_response = get_resource_schema_public(resource_type, flavor, version)
                     schema_summary = get_schema_validation_summary(schema_response)
                     error_message += f"\n\nSchema Requirements:\n{schema_summary}"
-                except:
+                except Exception:
                     pass  # Schema summary is helpful but not critical
                 
                 raise McpError(
@@ -496,7 +496,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             }
             try:
                 resource_spec_schema = get_spec_for_resource(resource_type, resource_name, project_name)
-            except:
+            except Exception:
                 resource_spec_schema = {}
             
             validate_resource(resource_data, resource_spec_schema)
@@ -957,7 +957,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
                 schema_response = get_resource_schema_public(resource_type, flavor, version)
                 schema_summary = get_schema_validation_summary(schema_response)
                 error_message += f"\n\nSchema Requirements:\n{schema_summary}"
-            except:
+            except Exception:
                 pass  # Schema summary is helpful but not critical
             
             raise McpError(
