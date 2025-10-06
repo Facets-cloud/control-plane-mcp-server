@@ -79,8 +79,9 @@ class ModuleInputSpec(BaseModel):
 def get_all_resources_by_project(
     limit: Annotated[int, "Maximum number of resources to return (default: 50)"] = 50,
     offset: Annotated[int, "Number of resources to skip (default: 0)"] = 0,
-    search: str = None,
-    resource_type: str = None
+    search: str = "",
+    resource_type: str = "",
+    project_name: str = ""
 ) -> Dict[str, Any]:
     """
     Get all resources for the current project with pagination and filtering.
@@ -88,34 +89,42 @@ def get_all_resources_by_project(
     Returns paginated list of resources with metadata. Default returns first 50 resources.
     Use limit/offset for pagination, search for name filtering, resource_type for type filtering.
 
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         limit: Maximum number of resources to return (default: 50)
         offset: Number of resources to skip for pagination (default: 0)
         search: Optional - Filter by resource name (case-insensitive partial match)
         resource_type: Optional - Filter by resource type (e.g., service, postgres, redis, mongo)
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         Dict containing:
             - resources: List of resource objects
             - pagination: Metadata (total, limit, offset, has_more)
             - filters_applied: Active filters (if any)
+
+    Raises:
+        McpError: If project cannot be resolved
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
+    project_name_resolved = current_project.name
 
     try:
         # Call the API to get all resources for the project
-        resources = api_instance.get_all_resources_by_stack(project_name, include_content=True)
+        resources = api_instance.get_all_resources_by_stack(project_name_resolved, include_content=True)
 
         # Extract and transform the relevant information
         all_resources = []
@@ -187,7 +196,7 @@ def get_all_resources_by_project(
 
 
 @mcp.tool()
-def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str, Any]:
+def get_resource_by_project(resource_type: str, resource_name: str, project_name: str = "") -> Dict[str, Any]:
     """
         Get a specific resource by type and name for the current project.
 
@@ -195,30 +204,38 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
         the resource's actual configuration that would be validated against the schema from
         get_spec_for_resource() when making updates.
 
+        **Parameter Resolution Hierarchy:**
+        - project_name: If provided, uses this project; otherwise falls back to current project context
+
         Args:
             resource_type: The type of resource to retrieve (e.g., service, ingress, postgres, redis)
             resource_name: The name of the specific resource to retrieve
+            project_name: Optional - Project name to use (overrides current project context)
 
         Returns:
             Resource details including name, type, and current configuration in the "content" field
+
+        Raises:
+            McpError: If project cannot be resolved
     """
     api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
+    project_name_resolved = current_project.name
     
     try:
 
         # Call the API directly with resource name, type, and project name
-        resource = api_instance.get_resource_by_stack(project_name, resource_type, resource_name)
+        resource = api_instance.get_resource_by_stack(project_name_resolved, resource_type, resource_name)
 
         # Format the response
         resource_data = {
@@ -253,52 +270,58 @@ def get_resource_by_project(resource_type: str, resource_name: str) -> Dict[str,
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Failed to get resource '{resource_name}' of type '{resource_type}' for project '{project_name}': {error_message}"
+                message=f"Failed to get resource '{resource_name}' of type '{resource_type}' for project '{project_name_resolved}': {error_message}"
             )
         )
 
 
 @mcp.tool()
-def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, Any]:
+def get_spec_for_resource(resource_type: str, resource_name: str, project_name: str = "") -> Dict[str, Any]:
     """
         Get specification details for the module mapped to a specific resource in the current project.
 
         This returns the schema that defines valid fields, allowed values, and validation rules
-        ONLY for the "spec" part of the resource JSON. A complete resource JSON has other fields 
+        ONLY for the "spec" part of the resource JSON. A complete resource JSON has other fields
         such as kind, metadata, flavor, version, etc., which are not covered by this schema.
-        
-        To understand the complete resource structure, refer to the sample JSON from 
+
+        To understand the complete resource structure, refer to the sample JSON from
         get_sample_for_module() which shows all required fields including those outside the "spec" section.
-        
-        Use this spec before updating resources to understand the available configuration options 
+
+        Use this spec before updating resources to understand the available configuration options
         and requirements for the "spec" section specifically.
-        
+
         Note: If you find fields with annotations starting with "x-ui-" (e.g., x-ui-secret-ref, x-ui-output-type),
         call explain_ui_annotation() with the annotation name to understand how to handle them properly.
+
+        **Parameter Resolution Hierarchy:**
+        - project_name: If provided, uses this project; otherwise falls back to current project context
 
         Args:
             resource_type: The type of resource (e.g., service, ingress, postgres, redis)
             resource_name: The name of the specific resource
+            project_name: Optional - Project name to use (overrides current project context)
 
         Returns:
             A schema specification that describes valid fields and values for the "spec" section of this resource type
+
+        Raises:
+            McpError: If project cannot be resolved
     """
     # First, get the resource details to extract intent, flavor, and version
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
-    
+
     try:
 
         # Get the specific resource
-        resource = get_resource_by_project(resource_type, resource_name)
+        resource = get_resource_by_project(resource_type, resource_name, project_name)
 
         # Extract intent (resource_type), flavor, and version from info
         if not resource.get("info"):
@@ -337,7 +360,7 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
         module_response = api_instance.get_module_for_ifv_and_stack(
             flavor=flavor,
             intent=resource_type,
-            stack_name=project_name,
+            stack_name=current_project.name,
             version=version
         )
 
@@ -358,24 +381,24 @@ def get_spec_for_resource(resource_type: str, resource_name: str) -> Dict[str, A
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Failed to get specification for resource '{resource_name}' of type '{resource_type}' in project '{project_name}': {error_message}"
+                message=f"Failed to get specification for resource '{resource_name}' of type '{resource_type}' in project '{current_project.name}': {error_message}"
             )
         )
 
 
 @mcp.tool()
-def update_resource(resource_type: str, resource_name: str, content: Dict[str, Any], dry_run: bool = True) -> str:
+def update_resource(resource_type: str, resource_name: str, content: Dict[str, Any], dry_run: bool = True, project_name: str = "") -> str:
     """
     Update a specific resource in the current project with strict schema validation.
-    
+
     IMPORTANT: This is a potentially irreversible operation that modifies resources.
     Always run with `dry_run=True` first to preview changes before committing them.
-    
+
     **Enhanced Schema Validation:**
     This function now performs comprehensive validation using the organization's complete schema
     from `get_resource_schema_public()` to ensure the updated configuration matches exact requirements
     including all properties, types, constraints, and special annotations.
-    
+
     **Safe Update Workflow:**
     1. **Preview Changes**: Always run with `dry_run=True` first
     2. **Review Diff**: Examine the differences between current and proposed configuration
@@ -388,34 +411,39 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
     - Use `get_resource_schema_public()` to understand valid properties and constraints
     - Ensure your updates conform to the organization's schema requirements
 
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         resource_type: The type of resource to update (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource to update
         content: The updated content for the resource as a dictionary. Must conform
                 to the organization's schema with all required fields and valid values.
         dry_run: If True, only preview changes without making them. Default is True.
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         Preview of changes with diff (if dry_run=True) or confirmation of update (if dry_run=False)
 
     Raises:
-        McpError: If the resource doesn't exist, validation fails, or update fails
+        McpError: If the resource doesn't exist, validation fails, project cannot be resolved, or update fails
     """
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
-    
+    project_name_resolved = current_project.name
+
     try:
 
         # First, get the current resource to obtain metadata and current content
-        current_resource = get_resource_by_project(resource_type, resource_name)
+        current_resource = get_resource_by_project(resource_type, resource_name, project_name)
         current_content = current_resource.get("content", {})
         
         # Create a ResourceFileRequest instance with the updated content
@@ -450,7 +478,7 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
                     schema_response = get_resource_schema_public(resource_type, flavor, version)
                     schema_summary = get_schema_validation_summary(schema_response)
                     error_message += f"\n\nSchema Requirements:\n{schema_summary}"
-                except:
+                except Exception:
                     pass  # Schema summary is helpful but not critical
                 
                 raise McpError(
@@ -467,17 +495,17 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
                 "content": content
             }
             try:
-                resource_spec_schema = get_spec_for_resource(resource_type, resource_name)
-            except:
+                resource_spec_schema = get_spec_for_resource(resource_type, resource_name, project_name)
+            except Exception:
                 resource_spec_schema = {}
             
             validate_resource(resource_data, resource_spec_schema)
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-        stack = api_stack.get_stack(project_name)
+        stack = api_stack.get_stack(project_name_resolved)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
-        
+
         # If dry_run is True, show a preview of changes rather than applying them
         if dry_run:
             import json
@@ -514,11 +542,11 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
             # Create an API instance and update the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
             update_request = UpdateBlueprintRequest(files=[resource_request])
-            api_instance.update_resources(update_request, project_name, branch)
-            
+            api_instance.update_resources(update_request, project_name_resolved, branch)
+
             # Check for errors after the update
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack(project_name, resource_type, resource_name)
+            resource_response = dropdown_api.get_resource_by_stack(project_name_resolved, resource_type, resource_name)
             
             update_result = {
                 "message": f"Successfully updated resource '{resource_name}' of type '{resource_type}'."
@@ -555,49 +583,57 @@ def update_resource(resource_type: str, resource_name: str, content: Dict[str, A
 
 
 @mcp.tool()
-def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, ModuleInputSpec]:
+def get_module_inputs(resource_type: str, flavor: str, project_name: str = "") -> Dict[str, ModuleInputSpec]:
     """
     Get required inputs for a module before adding a resource.
-    
+
     IMPORTANT: This tool MUST be called before attempting to add a resource using add_resource().
     It checks what inputs are required for a specific module and what existing resources are compatible
     with each input.
-    
+
     Each module input will be a ModuleInputSpec object with:
     - optional: Boolean indicating if this input is required
     - compatible_resources: List of CompatibleResource objects that can be used for this input
-    
+
     If there are multiple compatible resources for a required input, DO NOT select one automatically.
     Instead, you MUST ASK THE USER to choose which resource they want to use for each input.
     Present them with the options and get their explicit selection.
-    
-    For each non-optional input, you must select a compatible resource and include it in the 
+
+    For each non-optional input, you must select a compatible resource and include it in the
     'inputs' parameter of add_resource(). If an input is not optional and has no compatible
     resources, the resource cannot be added until those dependencies are created.
-    
+
     Example workflow:
     1. Call get_module_inputs('service', 'default')
     2. If it returns an input 'database' that is not optional and has multiple compatible resources:
        - Present the options to the user: "I see you need to select a database input. Available options are: X, Y, Z. Which would you like to use?"
        - Use their selection when calling add_resource()
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         resource_type: The type of resource to create (e.g., service, ingress, postgres) - this is the same as 'intent'
         flavor: The flavor of the resource to create
-        
+        project_name: Optional - Project name to use (overrides current project context)
+
     Returns:
         A dictionary of input names to ModuleInputSpec objects, including compatible resources
+
+    Raises:
+        McpError: If project cannot be resolved
     """
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
+    project_name_resolved = current_project.name
     
     try:
 
@@ -605,7 +641,7 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, ModuleInputS
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
 
         # Call the API to get module inputs
-        module_inputs = api_instance.get_module_inputs(project_name, resource_type, flavor)
+        module_inputs = api_instance.get_module_inputs(project_name_resolved, resource_type, flavor)
 
         # Format the response using Pydantic models
         result = {}
@@ -636,7 +672,7 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, ModuleInputS
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Failed to get module inputs for resource type '{resource_type}' with flavor '{flavor}' in project '{project_name}': {error_message}"
+                message=f"Failed to get module inputs for resource type '{resource_type}' with flavor '{flavor}' in project '{project_name_resolved}': {error_message}"
             )
         )
 
@@ -644,7 +680,7 @@ def get_module_inputs(resource_type: str, flavor: str) -> Dict[str, ModuleInputS
 @mcp.tool()
 def add_resource(resource_type: str, resource_name: str, flavor: str, version: str,
                  content: Dict[str, Any] = None, inputs: Dict[str, ResourceInput] = None,
-                 dry_run: bool = True) -> str:
+                 dry_run: bool = True, project_name: str = "") -> str:
     """
     Add a new resource to the current project.
 
@@ -698,6 +734,9 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         )
     }
 
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         resource_type: The type of resource to create (e.g., service, ingress, postgres, redis) - this is the same as 'intent'
         resource_name: The name for the new resource
@@ -708,23 +747,25 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         inputs: A dictionary mapping input names to ResourceInput objects containing
                resource_name, resource_type, and optional output_name.
         dry_run: If True, only preview the resource without creating it. Default is True.
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         Preview of resource (if dry_run=True) or confirmation of creation (if dry_run=False)
 
     Raises:
-        ValueError: If the resource already exists, creation fails, or required parameters are missing
+        McpError: If the resource already exists, creation fails, required parameters are missing, or project cannot be resolved
     """
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
+    project_name_resolved = current_project.name
     
     try:
 
@@ -759,7 +800,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
             )
 
         # Always validate inputs - get module requirements first
-        module_inputs = get_module_inputs(resource_type, flavor)
+        module_inputs = get_module_inputs(resource_type, flavor, project_name)
 
         # Check for required inputs without any compatible resources
         required_without_compatible = [
@@ -916,7 +957,7 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
                 schema_response = get_resource_schema_public(resource_type, flavor, version)
                 schema_summary = get_schema_validation_summary(schema_response)
                 error_message += f"\n\nSchema Requirements:\n{schema_summary}"
-            except:
+            except Exception:
                 pass  # Schema summary is helpful but not critical
             
             raise McpError(
@@ -928,9 +969,9 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-        stack = api_stack.get_stack(project_name)
+        stack = api_stack.get_stack(project_name_resolved)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
-        
+
         # If dry_run is True, show a preview of the resource rather than creating it
         if dry_run:
             import json
@@ -963,11 +1004,11 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         else:
             # Create an API instance and create the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            api_instance.create_resources([resource_request], project_name, branch)
-            
+            api_instance.create_resources([resource_request], project_name_resolved, branch)
+
             # Check for errors after the addition
             dropdown_api = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
-            resource_response = dropdown_api.get_resource_by_stack(project_name, resource_type, resource_name)
+            resource_response = dropdown_api.get_resource_by_stack(project_name_resolved, resource_type, resource_name)
             
             add_result = {
                 "message": f"Successfully created resource '{resource_name}' of type '{resource_type}'."
@@ -999,29 +1040,33 @@ def add_resource(resource_type: str, resource_name: str, flavor: str, version: s
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Failed to add resource '{resource_name}' of type '{resource_type}' to project '{project_name}': {error_message}"
+                message=f"Failed to add resource '{resource_name}' of type '{resource_type}' to project '{project_name_resolved}': {error_message}"
             )
         )
 
 
 @mcp.tool()
-def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True) -> str:
+def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True, project_name: str = "") -> str:
     """
     Delete a specific resource from the current project.
 
     IMPORTANT: This is an irreversible operation that permanently removes a resource.
     Always run with `dry_run=True` first to confirm which resource will be deleted.
-    
+
     Steps for safe resource deletion:
     1. Always run with `dry_run=True` first to confirm the resource details.
     2. Review the resource that will be deleted, including any potential dependencies.
     3. ASK THE USER EXPLICITLY if they want to proceed with deleting this resource.
     4. Only if user explicitly confirms, run again with `dry_run=False` to delete the resource.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         resource_type: The type of resource to delete (e.g., service, ingress, postgres)
         resource_name: The name of the specific resource to delete
         dry_run: If True, only preview the deletion without actually deleting. Default is True.
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         Preview of deletion (if dry_run=True) or confirmation of deletion (if dry_run=False)
@@ -1029,21 +1074,22 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
     Raises:
         ValueError: If the resource doesn't exist or deletion fails
     """
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
+    project_name_resolved = current_project.name
     
     try:
 
         # First, get the current resource to obtain metadata
-        current_resource = get_resource_by_project(resource_type, resource_name)
+        current_resource = get_resource_by_project(resource_type, resource_name, project_name)
 
         resource_request = ResourceFileRequest(
             resource_name=resource_name,
@@ -1054,7 +1100,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
 
         # Get project branch
         api_stack = swagger_client.UiStackControllerApi(ClientUtils.get_client())
-        stack = api_stack.get_stack(project_name)
+        stack = api_stack.get_stack(project_name_resolved)
         branch = stack.branch if hasattr(stack, 'branch') and stack.branch else None
         
         # If dry_run is True, show a preview of the deletion rather than deleting
@@ -1086,8 +1132,8 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
         else:
             # Create an API instance and delete the resource
             api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
-            api_instance.delete_resources([resource_request], project_name, branch)
-            
+            api_instance.delete_resources([resource_request], project_name_resolved, branch)
+
             return f"Successfully deleted resource '{resource_name}' of type '{resource_type}'."
 
     except Exception as e:
@@ -1095,7 +1141,7 @@ def delete_resource(resource_type: str, resource_name: str, dry_run: bool = True
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Failed to delete resource '{resource_name}' of type '{resource_type}' from project '{project_name}': {error_message}"
+                message=f"Failed to delete resource '{resource_name}' of type '{resource_type}' from project '{project_name_resolved}': {error_message}"
             )
         )
 
@@ -1265,36 +1311,41 @@ def get_sample_for_module(intent: str, flavor: str, version: str) -> Dict[str, A
 
 
 @mcp.tool()
-def get_output_references(output_type: str) -> List[Dict[str, Any]]:
+def get_output_references(output_type: str, project_name: str = "") -> List[Dict[str, Any]]:
     """
     Get a list of available output references from resources in the current project based on the output type.
-    
+
     This tool is used in conjunction with the x-ui-output-type annotation to allow users to select
     outputs from existing resources to reference in their resource configuration.
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         output_type: The type of output to search for (e.g., "iam_policy_arn", "database_connection_string")
-        
+        project_name: Optional - Project name to use (overrides current project context)
+
     Returns:
         A list of output references with resource details and output information
     """
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
+    project_name_resolved = current_project.name
     
     try:
 
         api_instance = swagger_client.UiDropdownsControllerApi(ClientUtils.get_client())
 
         # Call the API to get output references
-        references = api_instance.get_output_references(project_name, output_type)
+        references = api_instance.get_output_references(project_name_resolved, output_type)
 
         # Format the response to make it easier to present to users
         formatted_references = []
@@ -1315,7 +1366,7 @@ def get_output_references(output_type: str) -> List[Dict[str, Any]]:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message=f"Failed to get output references for project '{project_name}' and output type '{output_type}': {str(e)}"
+                message=f"Failed to get output references for project '{project_name_resolved}' and output type '{output_type}': {str(e)}"
             )
         )
 
@@ -1396,33 +1447,38 @@ Unknown UI annotation. You can ignore this annotation and proceed normally.
 
 
 @mcp.tool()
-def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
+def get_resource_output_tree(resource_type: str, project_name: str = "") -> Dict[str, Any]:
     """
     Get the output tree for a specific resource type in the current project.
-    
+
     This tool returns a hierarchical tree of all output fields available for the specified resource type.
     The output tree is used for referencing data from one resource in another resource using the
     format ${resourceType.resourceName.out.x.y}, where x.y is the path in the output tree.
-    
+
     For example, to reference a database connection string from a postgres resource named 'my-db',
     you would use: ${postgres.my-db.out.connection_string}
-    
+
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         resource_type: The type of resource to get outputs for (e.g., service, ingress, postgres, redis)
-        
+        project_name: Optional - Project name to use (overrides current project context)
+
     Returns:
         A hierarchical tree of available output properties for the specified resource type
     """
-    # Get current project
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using project_tools.use_project()."
+                message=str(ve)
             )
         )
-    project_name = current_project.name
+    project_name_resolved = current_project.name
     
     try:
 
@@ -1430,14 +1486,14 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
 
         # Call the API to get autocomplete data
-        autocomplete_data = api_instance.get_autocomplete_data(project_name)
+        autocomplete_data = api_instance.get_autocomplete_data(project_name_resolved)
 
         # Check if outProperties exists and contains data for the specified resource type
         if not autocomplete_data.out_properties:
             raise McpError(
                 ErrorData(
                     code=INVALID_REQUEST,
-                    message=f"No output properties found for project '{project_name}'"
+                    message=f"No output properties found for project '{project_name_resolved}'"
                 )
             )
 
@@ -1447,7 +1503,7 @@ def get_resource_output_tree(resource_type: str) -> Dict[str, Any]:
             raise McpError(
                 ErrorData(
                     code=INVALID_REQUEST,
-                    message=f"No output properties found for resource type '{resource_type}' in project '{project_name}'"
+                    message=f"No output properties found for resource type '{resource_type}' in project '{project_name_resolved}'"
                 )
             )
 
@@ -1519,6 +1575,7 @@ def _extract_attribute_paths(obj: Any, current_path: str) -> List[str]:
 def get_resource_outputs(
     resource_type: Optional[str] = None,
     resource_name: Optional[str] = None,
+    project_name: str = "",
 ) -> Dict[str, Any]:
     """
     Get all available output references from resources in the current project.
@@ -1526,8 +1583,6 @@ def get_resource_outputs(
     This tool returns actual dollar reference expressions (${...}) that can be used in resource
     configurations to reference outputs from existing resources. Unlike get_resource_output_tree()
     which shows schema structure, this returns actual instances with complete reference paths ready to use.
-
-    Requires a current project to be set using use_project() first.
 
     Use this tool when you need to discover what outputs are available, resolve "has no attribute" errors,
     or find valid reference expressions for connecting resources.
@@ -1537,31 +1592,35 @@ def get_resource_outputs(
 
     Returns references in format: ${postgres.my-db.out.connection_string}
 
+    **Parameter Resolution Hierarchy:**
+    - project_name: If provided, uses this project; otherwise falls back to current project context
+
     Args:
         resource_type: Optional - Filter to specific resource type (e.g., "postgres", "mongo", "service", "redis")
         resource_name: Optional - Filter to specific resource name (e.g., "my-database", "api-service")
+        project_name: Optional - Project name to use (overrides current project context)
 
     Returns:
         Dict containing all_dollar_references (sorted list), total_references count, and filters_applied
     """
-    # Check if current project is set
-    current_project = ClientUtils.get_current_project()
-    if not current_project:
+    # Resolve project
+    try:
+        current_project = ClientUtils.resolve_project(project_name)
+    except ValueError as ve:
         raise McpError(
             ErrorData(
                 code=INVALID_REQUEST,
-                message="No current project is set. Please set a project using use_project() first."
+                message=str(ve)
             )
         )
-
-    project_name = current_project.name
+    project_name_resolved = current_project.name
 
     try:
         # Create API instance
         api_instance = swagger_client.UiBlueprintDesignerControllerApi(ClientUtils.get_client())
 
         # Call the autocomplete v2 API which returns module-specific output trees
-        response = api_instance.get_autocomplete_data_v2(stack_name=project_name)
+        response = api_instance.get_autocomplete_data_v2(stack_name=project_name_resolved)
 
         # Convert response to dict if needed
         if hasattr(response, "to_dict"):

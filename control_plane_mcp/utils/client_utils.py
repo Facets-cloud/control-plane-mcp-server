@@ -181,3 +181,83 @@ class ClientUtils:
         else:
             error_message = str(e)
         return error_message
+
+    @staticmethod
+    def resolve_project(project_name: str = None) -> Stack:
+        """
+        Resolve project from parameter or current context.
+
+        Args:
+            project_name: Optional project name to fetch. If None or empty, uses current project context.
+
+        Returns:
+            Stack: The resolved project object.
+
+        Raises:
+            ValueError: If project_name is provided but project doesn't exist, or if no current project is set.
+        """
+        # Normalize: treat empty strings as None
+        project_name = project_name.strip() if project_name else None
+
+        if project_name:
+            # Fetch project by name from API
+            api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
+            try:
+                project = api_instance.get_stack(project_name)
+                return project
+            except Exception as e:
+                error_message = ClientUtils.extract_error_message(e)
+                raise ValueError(f"Failed to fetch project '{project_name}': {error_message}")
+        else:
+            # Use current project context
+            project = ClientUtils.get_current_project()
+            if not project:
+                raise ValueError("No current project is set. Please set a project using use_project() or provide project_name parameter.")
+            return project
+
+    @staticmethod
+    def resolve_environment(env_name: str = None, project: Stack = None) -> AbstractCluster:
+        """
+        Resolve environment from parameter or current context.
+
+        Args:
+            env_name: Optional environment name to fetch. If None or empty, uses current environment context.
+            project: Optional project object to search for environment. Required if env_name is provided.
+
+        Returns:
+            AbstractCluster: The resolved environment object.
+
+        Raises:
+            ValueError: If env_name is provided but environment doesn't exist, or if no current environment is set.
+        """
+        # Normalize: treat empty strings as None
+        env_name = env_name.strip() if env_name else None
+
+        if env_name:
+            # Fetch environment by name
+            if not project:
+                raise ValueError("Project is required when resolving environment by env_name.")
+
+            api_instance = swagger_client.UiStackControllerApi(ClientUtils.get_client())
+            try:
+                environments = api_instance.get_clusters(project.name)
+                # Find environment by name
+                found_environment = None
+                for env in environments:
+                    if env.name == env_name:
+                        found_environment = env
+                        break
+
+                if not found_environment:
+                    raise ValueError(f"Environment '{env_name}' not found in project '{project.name}'.")
+
+                return found_environment
+            except Exception as e:
+                error_message = ClientUtils.extract_error_message(e)
+                raise ValueError(f"Failed to fetch environment '{env_name}': {error_message}")
+        else:
+            # Use current environment context
+            environment = ClientUtils.get_current_cluster()
+            if not environment:
+                raise ValueError("No current environment is set. Please set an environment using use_environment() or provide env_name parameter.")
+            return environment
